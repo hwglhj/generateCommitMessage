@@ -2,7 +2,7 @@
 <idea-plugin>
     <id>com.fs.generateCommitMessage</id>
     <name>Generate Commit Message</name>
-    <vendor url="https://github.com/hwglhj/generateCommitMessage">FS</vendor>
+    <vendor email="support@example.com" url="https://github.com/hwglhj/generateCommitMessage">FS</vendor>
 
     <description><![CDATA[
 AI-powered Git commit message generator with CLI tools integration.
