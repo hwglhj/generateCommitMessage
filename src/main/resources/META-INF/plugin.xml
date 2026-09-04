@@ -32,14 +32,6 @@ Features:
     <depends>org.jetbrains.plugins.terminal</depends>
 
     <actions>
-        <action id="com.fs.ShowInputDialog"
-                class="com.fs.ShowInputDialogAction"
-                text="Search API Path"
-                description="Quick search for REST API endpoints">
-            <keyboard-shortcut keymap="$default" first-keystroke="meta BACK_SLASH"/>
-            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta BACK_SLASH"/>
-            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta BACK_SLASH"/>
-        </action>
         <action id="com.fs.ShowInFinder"
                 class="com.fs.ShowInFinderAction"
                 text="Open in External Editor"
