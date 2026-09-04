@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<idea-plugin>
+    <id>com.fs.generateCommitMessage</id>
+    <name>Generate Commit Message</name>
+    <vendor url="https://github.com/hwglhj/generateCommitMessage">FS</vendor>
+
+    <description><![CDATA[
+AI-powered Git commit message generator with CLI tools integration.
+
+Features:
+- Generate high-quality commit messages using AI (Claude, Codex, Cursor, etc.)
+- Dual mode: CLI mode and API mode
+- Customizable prompts and output language
+- Integrated CLI terminal tools sidebar
+- External editor jump support
+]]></description>
+
+    <change-notes><![CDATA[
+        <h3>1.0.0</h3>
+        <ul>
+            <li>首次发布：整合 AI Commit、AI Inline、API Search、CLI Tools 功能</li>
+            <li>统一配置界面，标签页布局</li>
+        </ul>
+    ]]></change-notes>
+
+    <version>1.0.0</version>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.vcs</depends>
+    <depends>org.jetbrains.plugins.terminal</depends>
+
+    <actions>
+        <action id="com.fs.ShowInputDialog"
+                class="com.fs.ShowInputDialogAction"
+                text="Search API Path"
+                description="Quick search for REST API endpoints">
+            <keyboard-shortcut keymap="$default" first-keystroke="meta BACK_SLASH"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta BACK_SLASH"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta BACK_SLASH"/>
+        </action>
+        <action id="com.fs.ShowInFinder"
+                class="com.fs.ShowInFinderAction"
+                text="Open in External Editor"
+                description="Open current file in external editor (VS Code / Cursor / Antigravity)">
+            <keyboard-shortcut keymap="$default" first-keystroke="shift meta P"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="shift meta P"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="shift meta P"/>
+        </action>
+        <action id="com.fs.aicommit.GenerateCommitMessage"
+                class="com.fs.aicommit.GenerateCommitMessageAction"
+                text="Generate Commit Message"
+                description="使用 AI 根据选中的变更生成 commit message"
+                icon="AllIcons.Actions.Lightning">
+            <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
+        </action>
+        <action id="com.fs.aicommit.InlineEdit"
+                class="com.fs.aicommit.InlineEditAction"
+                text="AI 行内修改选中代码"
+                description="划中代码后用 AI 按指令直接修改（行内替换，可撤销）">
+            <keyboard-shortcut keymap="$default" first-keystroke="control K"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta K"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta K"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </action>
+        <action id="com.fs.aicommit.InlineComment"
+                class="com.fs.aicommit.InlineCommentAction"
+                text="AI 生成注释"
+                description="为选中代码生成高质量注释（不改动逻辑）"/>
+    </actions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.fs.aicommit.AiCommitSettings"/>
+        <applicationService serviceImplementation="com.fs.aicommit.AiInlineService"/>
+        <notificationGroup id="RestfulToolkit.AiCommit" displayType="BALLOON"/>
+        <applicationService serviceImplementation="com.fs.terminal.CliToolsSettings"/>
+        <completion.contributor language="any" implementationClass="com.fs.aicommit.AiInlineCompletionProvider"/>
+        <toolWindow id="Claude" anchor="right" secondary="false"
+                    icon="/icons/claude.svg"
+                    factoryClass="com.fs.terminal.ClaudeToolWindowFactory"/>
+        <toolWindow id="Codex" anchor="right" secondary="false"
+                    icon="/icons/codex.svg"
+                    factoryClass="com.fs.terminal.CodexToolWindowFactory"/>
+        <toolWindow id="Cursor" anchor="right" secondary="false"
+                    icon="/icons/cursor.svg"
+                    factoryClass="com.fs.terminal.CursorToolWindowFactory"/>
+        <toolWindow id="OpenCode" anchor="right" secondary="false"
+                    icon="/icons/opencode.svg"
+                    factoryClass="com.fs.terminal.OpenCodeToolWindowFactory"/>
+        <toolWindow id="Antigravity" anchor="right" secondary="false"
+                    icon="/icons/antigravity.svg"
+                    factoryClass="com.fs.terminal.AntigravityToolWindowFactory"/>
+        <toolWindow id="Grok" anchor="right" secondary="false"
+                    icon="/icons/grok.svg"
+                    factoryClass="com.fs.terminal.GrokToolWindowFactory"/>
+        <toolWindow id="OMP" anchor="right" secondary="false"
+                    icon="/icons/omp.svg"
+                    factoryClass="com.fs.terminal.OmpToolWindowFactory"/>
+        <fileEditorProvider implementation="com.fs.terminal.TerminalFileEditorProvider"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable
+            parentId="tools"
+            instance="com.fs.aicommit.GenerateCommitMessageConfigurable"
+            id="com.fs.aicommit.GenerateCommitMessageConfigurable"
+            displayName="Generate Commit Message"/>
+    </extensions>
+</idea-plugin>
