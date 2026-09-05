@@ -7,6 +7,8 @@ import com.intellij.openapi.components.Storage
 import com.intellij.util.xmlb.XmlSerializerUtil
 
 /**
+ * AI Commit 配置（应用级持久化，文件 ai-commit.xml）。
+ *
  * 支持选择 Claude、Codex、Cursor、OpenCode、Gemini(agy)、Grok 或 OMP CLI；
  * 模型为单一输入，随所选 CLI 生效，可在末尾追加思考等级（如 "claude-opus-4-5 high"）。
  * 认证复用各 CLI 自身的登录凭证，不存储 API Key。
@@ -23,36 +25,26 @@ class AiCommitSettings : PersistentStateComponent<AiCommitSettings> {
     /** 使用的模型（随所选 CLI 生效，可带思考等级后缀；留空用该 CLI 默认模型） */
     var model: String = ""
 
-    /** 行内 AI 修改使用的 CLI（与 AI Commit 独立配置；留空表示尚未配置，升级时迁移为跟随 AI Commit） */
-    var inlineProvider: String = ""
+    /** 用户附加提示词（叠加在内置提示词之后，优先遵循） */
+    var customPrompt: String = ""
 
-    /** 行内 AI 修改使用的模型（含思考等级后缀，随 [inlineProvider] 生效） */
-    var inlineModel: String = ""
+    /** 是否把仓库近期提交记录作为风格参考传给 AI */
+    var includeRecentCommits: Boolean = true
 
-    /** 行内 AI 修改的附加提示词 */
-    var inlineCustomPrompt: String = ""
+    /** 传给 AI 的 diff 最大长度（字符数），过长会截断 */
+    var maxDiffLength: Int = DEFAULT_MAX_DIFF_LENGTH
+
+    /** 生成的 commit message 语言：[LANGUAGE_ZH] 或 [LANGUAGE_EN] */
+    var outputLanguage: String = LANGUAGE_ZH
 
     /** 旧版本的按 CLI 模型字段，仅用于升级迁移，勿再写入 */
     var claudeModel: String = ""
     var codexModel: String = ""
     var ompModel: String = ""
 
-    /** 用户附加提示词（叠加在内置提示词之后，优先遵循） */
-    var customPrompt: String = ""
-
-    /** 传给 AI 的 diff 最大长度（字符数），过长会截断 */
-    var maxDiffLength: Int = DEFAULT_MAX_DIFF_LENGTH
-
     fun activeSdk(): SdkDefinition = SdkDefinition.fromProvider(activeProvider)
 
-    /** 行内修改的 CLI；尚未单独配置时跟随 AI Commit */
-    fun inlineSdk(): SdkDefinition =
-        if (inlineProvider.isBlank()) activeSdk() else SdkDefinition.fromProvider(inlineProvider)
-
     fun modelFor(sdk: SdkDefinition): String = model.trim().ifBlank { sdk.defaultModel }
-
-    fun inlineModelFor(sdk: SdkDefinition): String =
-        if (inlineProvider.isBlank()) modelFor(sdk) else inlineModel.trim().ifBlank { sdk.defaultModel }
 
     override fun getState(): AiCommitSettings = this
 
@@ -69,6 +61,10 @@ class AiCommitSettings : PersistentStateComponent<AiCommitSettings> {
         claudeModel = ""
         codexModel = ""
         ompModel = ""
+        // 手工改过配置文件或未来新增语言时，未知值回退到中文
+        if (outputLanguage != LANGUAGE_ZH && outputLanguage != LANGUAGE_EN) {
+            outputLanguage = LANGUAGE_ZH
+        }
     }
 
     companion object {
@@ -79,7 +75,15 @@ class AiCommitSettings : PersistentStateComponent<AiCommitSettings> {
         const val PROVIDER_GEMINI = "gemini"
         const val PROVIDER_GROK = "grok"
         const val PROVIDER_OMP = "omp"
-        const val DEFAULT_MAX_DIFF_LENGTH = 4000
+
+        const val LANGUAGE_ZH = "zh"
+        const val LANGUAGE_EN = "en"
+
+        const val DEFAULT_MAX_DIFF_LENGTH = 5000
+        /** 低于该值 diff 基本没有可用信息，设置页与服务端都以此为下限 */
+        const val MIN_MAX_DIFF_LENGTH = 500
+        /** 作为风格参考读取的近期提交条数 */
+        const val RECENT_COMMITS_COUNT = 10
 
         fun getInstance(): AiCommitSettings =
             ApplicationManager.getApplication().getService(AiCommitSettings::class.java)

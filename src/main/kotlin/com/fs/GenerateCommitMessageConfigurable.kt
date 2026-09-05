@@ -17,7 +17,7 @@ import javax.swing.border.EmptyBorder
 
 /**
  * Generate Commit Message 统一配置界面
- * 包含 3 个标签页：AI Commit、AI Inline、CLI Tools
+ * 包含 2 个标签页：AI Commit、CLI Tools
  */
 class GenerateCommitMessageConfigurable : Configurable {
 
@@ -30,10 +30,6 @@ class GenerateCommitMessageConfigurable : Configurable {
     // AI Commit 标签页组件
     private val commitPanel = ProviderModelPanel("CLI 与模型")
     private val commitPromptArea = JBTextArea(6, 60)
-
-    // AI Inline 标签页组件
-    private val inlinePanel = ProviderModelPanel("CLI 与模型")
-    private val inlinePromptArea = JBTextArea(6, 60)
 
     // CLI Tools 标签页组件
     private val showClaudeCheckbox = JCheckBox("显示 Claude 图标")
@@ -49,9 +45,8 @@ class GenerateCommitMessageConfigurable : Configurable {
     override fun createComponent(): JComponent {
         if (mainPanel != null) return mainPanel!!
 
-        // 创建 3 个标签页
+        // 创建 2 个标签页
         tabbedPane.addTab("AI Commit", createAiCommitTab())
-        tabbedPane.addTab("AI Inline", createAiInlineTab())
         tabbedPane.addTab("CLI Tools", createCliToolsTab())
 
         mainPanel = JPanel(BorderLayout()).apply {
@@ -102,55 +97,6 @@ class GenerateCommitMessageConfigurable : Configurable {
                     .addComponent(
                         JBLabel(
                             "<html><small>首次使用请先完成 CLI 认证；OMP/Gemini 使用其自身已配置的模型提供方与凭证。</small></html>"
-                        )
-                    )
-                    .addVerticalGap(10)
-                    .addComponent(promptPanel)
-                    .panel,
-                BorderLayout.NORTH
-            )
-        }
-    }
-
-    // ============================================
-    // AI Inline 标签页
-    // ============================================
-    private fun createAiInlineTab(): JComponent {
-        inlinePromptArea.lineWrap = true
-        inlinePromptArea.wrapStyleWord = true
-
-        val viewBuiltinButton = JButton("查看内置提示词").apply {
-            addActionListener { showBuiltinPrompt(com.fs.aicommit.AiCommitPrompts.BUILTIN_INLINE_PROMPT) }
-        }
-        val clearPromptButton = JButton("清空附加提示词").apply {
-            addActionListener { inlinePromptArea.text = "" }
-        }
-
-        val promptButtons = JPanel(BorderLayout(10, 0)).apply {
-            add(viewBuiltinButton, BorderLayout.WEST)
-            add(clearPromptButton, BorderLayout.EAST)
-        }
-
-        val promptPanel = JPanel(BorderLayout(0, 6)).apply {
-            add(
-                FormBuilder.createFormBuilder()
-                    .addComponent(JBLabel("附加提示词（叠加在内置提示词之后，AI 优先遵循，留空则仅使用内置提示词）:"))
-                    .addComponent(JBScrollPane(inlinePromptArea))
-                    .addComponent(promptButtons)
-                    .panel,
-                BorderLayout.CENTER
-            )
-        }
-
-        return JPanel(BorderLayout()).apply {
-            border = EmptyBorder(JBUI.insets(10))
-            add(
-                FormBuilder.createFormBuilder()
-                    .addComponent(inlinePanel.panel)
-                    .addVerticalGap(10)
-                    .addComponent(
-                        JBLabel(
-                            "<html><small>行内修改功能（⌘ K）：选中代码后输入指令，AI 原地改写。</small></html>"
                         )
                     )
                     .addVerticalGap(10)
@@ -213,10 +159,6 @@ class GenerateCommitMessageConfigurable : Configurable {
         if (commitPanel.isModified(aiCommitSettings.activeProvider, aiCommitSettings.model)) return true
         if (commitPromptArea.text != aiCommitSettings.customPrompt) return true
 
-        // AI Inline
-        if (inlinePanel.isModified(aiCommitSettings.inlineProvider, aiCommitSettings.inlineModel)) return true
-        if (inlinePromptArea.text != aiCommitSettings.inlineCustomPrompt) return true
-
         // CLI Tools
         if (showClaudeCheckbox.isSelected != cliToolsSettings.isShowIcon(CliTool.CLAUDE)) return true
         if (showCodexCheckbox.isSelected != cliToolsSettings.isShowIcon(CliTool.CODEX)) return true
@@ -235,11 +177,6 @@ class GenerateCommitMessageConfigurable : Configurable {
         aiCommitSettings.model = commitPanel.composedModel()
         aiCommitSettings.customPrompt = commitPromptArea.text
 
-        // AI Inline
-        aiCommitSettings.inlineProvider = inlinePanel.selectedProvider()
-        aiCommitSettings.inlineModel = inlinePanel.composedModel()
-        aiCommitSettings.inlineCustomPrompt = inlinePromptArea.text
-
         // CLI Tools
         cliToolsSettings.setShowIcon(CliTool.CLAUDE, showClaudeCheckbox.isSelected)
         cliToolsSettings.setShowIcon(CliTool.CODEX, showCodexCheckbox.isSelected)
@@ -254,10 +191,6 @@ class GenerateCommitMessageConfigurable : Configurable {
         // AI Commit
         commitPanel.reset(aiCommitSettings.activeProvider, aiCommitSettings.model)
         commitPromptArea.text = aiCommitSettings.customPrompt
-
-        // AI Inline
-        inlinePanel.reset(aiCommitSettings.inlineProvider, aiCommitSettings.inlineModel)
-        inlinePromptArea.text = aiCommitSettings.inlineCustomPrompt
 
         // CLI Tools
         showClaudeCheckbox.isSelected = cliToolsSettings.isShowIcon(CliTool.CLAUDE)

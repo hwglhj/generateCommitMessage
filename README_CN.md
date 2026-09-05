@@ -1,88 +1,76 @@
-# SubMsg - AI 驱动的 Git 提交信息生成器
+# Generate Commit Message - AI 驱动的 Git 提交信息生成器
 
-[![版本](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/hwglhj/submsg)
-[![平台](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/hwglhj/submsg)
+[![版本](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/hwglhj/generateCommitMessage)
+[![平台](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/hwglhj/generateCommitMessage)
 [![许可证](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> 基于 [cli-tools-idea](https://github.com/l-ning/cli-tools-idea) 项目改进，专为 Windows 优化的 IntelliJ IDEA AI Commit 插件
+> 基于 [cli-tools-idea](https://github.com/l-ning/cli-tools-idea) 改进的 IntelliJ IDEA 插件，用你本机已安装并登录的 AI CLI 生成提交信息，针对 Windows 优化。
 
 [English](README.md) | [简体中文](README_CN.md)
 
 ## ✨ 特性
 
-- 🤖 **AI 驱动**：通过分析 Git diff 自动生成提交信息
-- 🔄 **双模式**：CLI 模式（Claude、Codex、Cursor 等）和 API 模式（OpenAI、Anthropic 等）
-- 🎯 **多 CLI 支持**：Claude CLI、Codex CLI、Cursor Agent、OpenCode、Gemini (agy)、Grok、OMP
-- 🎨 **自定义提示词**：添加项目特定的提交信息规范
-- 💻 **Windows 优化**：完美支持 Windows 路径、命令检测和模型列表
-- ⚡ **轻量级**：精简代码，专注核心功能
-
-## 📸 截图
-
-### 设置界面
-![设置](docs/images/settings.png)
-
-### 生成提交信息
-![生成](docs/images/generate.png)
+- 🤖 **AI 驱动**：分析提交面板中勾选的变更，自动生成提交信息
+- 🎯 **多 CLI 支持**：Claude、Codex、Cursor Agent、OpenCode、Gemini (agy)、Grok、OMP
+- 🔐 **无需 API Key**：复用各 CLI 自身的登录凭证，IDE 中不保存任何密钥
+- 🎨 **自定义提示词**：在内置提示词之后叠加项目特定的提交规范
+- 📊 **近期提交风格参考**：可选把最近 10 条提交信息传给 AI，保持风格一致
+- 📏 **Diff 长度控制**：可配置传给 AI 的 diff 最大长度
+- 🌐 **输出语言**：中文（默认）或英文提交信息
+- 🖥️ **CLI Tools 侧边栏**：每个 CLI 一个工具窗口，可按需高权限启动
+- 🔗 **外部编辑器跳转**：在 VS Code / Cursor / Antigravity 中打开当前文件
+- 💻 **Windows 优化**：支持 `.exe`/`.cmd`/`.bat` 检测、npm 与 nvm-windows 路径
 
 ## 🚀 快速开始
 
 ### 1. 安装 CLI 工具
 
-选择一个支持的 CLI 工具：
+至少安装并登录一个支持的 CLI，例如：
 
-#### Claude CLI（推荐）
 ```bash
-npm install -g @anthropic-ai/claude-cli
+# Claude CLI（推荐）
+npm install -g @anthropic-ai/claude-code
 claude /login
-```
 
-#### Codex CLI
-```bash
-npm install -g @openai/codex-cli
+# Codex CLI
+npm install -g @openai/codex
 codex login
-```
-
-#### Cursor Agent
-```bash
-npm install -g @cursor/agent
-cursor-agent login
 ```
 
 ### 2. 安装插件
 
-**从市场安装（即将推出）**
-- 打开 IntelliJ IDEA
-- 前往 `设置` → `插件` → `市场`
-- 搜索 "SubMsg"
-- 点击 `安装`
-
-**从发布版本安装**
-- 从 [Releases](https://github.com/hwglhj/submsg/releases) 下载最新的 `.zip` 文件
-- 打开 IntelliJ IDEA
-- 前往 `设置` → `插件` → `⚙️` → `从磁盘安装插件...`
-- 选择下载的 `.zip` 文件
+- 构建：`./gradlew buildPlugin`，产物为 `build/distributions/generateCommitMessage-1.0.0.zip`
+- 打开 IntelliJ IDEA → `设置` → `插件` → `⚙️` → `从磁盘安装插件...`
+- 选择该 `.zip` 文件并重启 IDE
 
 ### 3. 配置
 
-1. 打开 `设置` → `工具` → `SubMsg - AI Commit`
-2. 选择 **CLI 模式** 或 **API 模式**
-3. CLI 模式配置：
-   - 选择你的 CLI（例如 Claude）
-   - 输入模型名称（例如 `claude-sonnet-4-6`）
-   - 点击 `测试` 验证
-4. API 模式配置：
-   - 点击 `添加` 创建新的 API 配置
-   - 填写 Base URL、API Key 和 Model
-   - 点击 `测试` 验证
+打开 `设置` → `工具` → `Generate Commit Message`。
+
+**AI Commit 标签页**
+
+1. 选择 CLI 与模型（模型列表从 CLI 拉取，也可手动输入任意模型名）
+2. 支持思考等级的 CLI 可选择思考等级
+3. 点击 `测试` 验证 CLI 已安装并登录
+4. 可选填写附加提示词（叠加在内置提示词之后，可点 `查看内置提示词` 查看）
+5. 增强选项：
+   - ☑ 包含近期提交风格参考（最近 10 条）
+   - Diff 最大长度（字符数，默认 5000，最小 500）
+   - 输出语言：中文 / 英文
+
+**CLI Tools 标签页**
+
+- 逐个开关各 CLI 工具的侧边栏图标
+- 逐个开启高权限启动参数（例如 `claude --permission-mode bypassPermissions`）
 
 ### 4. 使用
 
 1. 修改一些代码
-2. 打开 VCS 提交窗口
-3. 点击 **"AI 生成提交信息"** 按钮
-4. 审查和编辑生成的信息
-5. 提交！
+2. 打开 VCS 提交面板，勾选要提交的文件
+3. 点击提交信息框旁的 ⚡ **Generate Commit Message** 按钮
+4. 审查或编辑生成的信息，然后提交
+
+生成过程是可取消的后台任务；取消或失败时会恢复你原先输入的内容。
 
 ## 🛠️ 支持的 CLI
 
@@ -98,83 +86,57 @@ cursor-agent login
 
 ## 📋 系统要求
 
-- **IntelliJ IDEA**: 2021.1 或更高版本（社区版 / 旗舰版）
-- **Java**: 11 或更高版本
-- **操作系统**: Windows 10/11, macOS 10.14+, Linux
-
-### Windows 特别优化
-
-SubMsg 针对 Windows 进行了优化：
-- ✅ 支持 `.exe`、`.cmd`、`.bat` 可执行文件
-- ✅ Windows 路径检测（Program Files、AppData 等）
-- ✅ 使用 `where` 命令检测 CLI
-- ✅ 正确的 PATH 分隔符（`;` vs `:`）
-- ✅ 支持 nvm-windows
+- **IntelliJ IDEA**：2021.1 或更高版本（社区版 / 旗舰版），需启用 Terminal 插件
+- **Java**：构建需要 JDK 17
+- **操作系统**：Windows 10/11、macOS、Linux
 
 ## 🔧 高级配置
 
 ### 自定义提示词
 
-在"附加提示词"字段添加项目特定要求：
+在"附加提示词"中添加项目特定要求，例如：
 
 ```
-遵循 conventional commits 格式。
-使用 emoji 前缀：✨ feat、🐛 fix、📝 docs、♻️ refactor
-主题行保持在 50 字符以内。
+scope 固定使用 core。
+在 footer 中引用分支名里的 Jira 单号。
 ```
 
-### API 模式
+### 配置文件位置
 
-支持任何 OpenAI 兼容的 API：
-
-- **OpenAI**: `https://api.openai.com/v1`
-- **Anthropic**: `https://api.anthropic.com/v1`
-- **Azure OpenAI**: `https://your-resource.openai.azure.com/openai/deployments/your-deployment`
-- **本地 LLM**: `http://localhost:1234/v1`
+- AI Commit：IDE options 目录下的 `ai-commit.xml`
+- CLI Tools：IDE options 目录下的 `fs-cli-tools.xml`
 
 ## 🐛 故障排除
 
-### Windows CLI 检测失败
+### Windows 下检测不到 CLI
 
-1. 确认 CLI 已正确安装：
-   ```bash
-   claude --version
-   # 或
-   codex --version
-   ```
-
-2. 如果命令未找到，添加到 PATH：
-   - npm 全局路径通常在 `%APPDATA%\npm`
-   - 或使用完整路径配置
-
+1. 在终端确认 CLI 可用：`claude --version` 或 `codex --version`
+2. 命令未找到时把 npm 全局目录（通常是 `%APPDATA%\npm`）加入 PATH
 3. 重启 IntelliJ IDEA
 
 ### 模型列表获取失败
 
-1. 检查网络连接
-2. 确认 CLI 已登录：
-   ```bash
-   claude /login
-   # 或
-   codex login
-   ```
-3. 手动输入模型名称
+1. 确认 CLI 已登录（`claude /login`、`codex login`）
+2. 点击 `刷新模型列表` 重试，或直接手动输入模型名
 
-### API 模式连接失败
+### 生成失败提示需要登录
 
-1. 检查 Base URL 格式（需要包含完整路径，如 `/v1`）
-2. 验证 API Key 是否正确
-3. 检查网络是否可以访问 API 地址
+插件复用 CLI 自身的凭证，请先在终端完成对应 CLI 的登录或认证配置。
+
+## 🧑‍💻 开发
+
+```bash
+./gradlew compileKotlin        # 编译
+./gradlew test                 # 单元测试
+./gradlew buildPlugin          # 生成 build/distributions/generateCommitMessage-1.0.0.zip
+./gradlew runIde               # 启动带插件的沙箱 IDE
+```
+
+设计文档见 `docs/superpowers/specs/`，实现计划见 `docs/superpowers/plans/`。
 
 ## 🤝 贡献
 
-欢迎贡献！请随时提交 Pull Request。
-
-1. Fork 本仓库
-2. 创建特性分支（`git checkout -b feature/amazing-feature`）
-3. 提交更改（`git commit -m '✨ Add amazing feature'`）
-4. 推送到分支（`git push origin feature/amazing-feature`）
-5. 打开 Pull Request
+欢迎贡献，请直接提交 Pull Request。
 
 ## 📝 许可证
 
@@ -184,20 +146,6 @@ SubMsg 针对 Windows 进行了优化：
 
 - 基于 [@l-ning](https://github.com/l-ning) 的 [cli-tools-idea](https://github.com/l-ning/cli-tools-idea) 项目
 - 感谢 Anthropic、OpenAI 等公司提供的优秀 AI CLI 工具
-
-## 📮 联系方式
-
-- **作者**: hwglhj
-- **问题反馈**: [GitHub Issues](https://github.com/hwglhj/submsg/issues)
-- **讨论**: [GitHub Discussions](https://github.com/hwglhj/submsg/discussions)
-
-## 🗺️ 路线图
-
-- [ ] 发布到 JetBrains 市场
-- [ ] 支持更多 AI 提供商
-- [ ] 添加提交信息模板
-- [ ] 多语言支持
-- [ ] 批量生成提交信息
 
 ---
 

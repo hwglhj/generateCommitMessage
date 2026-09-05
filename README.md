@@ -1,88 +1,76 @@
-# SubMsg - AI-Powered Git Commit Message Generator
+# Generate Commit Message - AI-Powered Git Commit Message Generator
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/hwglhj/submsg)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/hwglhj/submsg)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/hwglhj/generateCommitMessage)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/hwglhj/generateCommitMessage)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> 基于 [cli-tools-idea](https://github.com/l-ning/cli-tools-idea) 项目改进，专为 Windows 优化的 IntelliJ IDEA AI Commit 插件
+> Based on [cli-tools-idea](https://github.com/l-ning/cli-tools-idea), an IntelliJ IDEA plugin that generates commit messages with the AI CLIs you already have installed, optimized for Windows.
 
 [English](README.md) | [简体中文](README_CN.md)
 
 ## ✨ Features
 
-- 🤖 **AI-Powered**: Automatically generate commit messages by analyzing Git diffs
-- 🔄 **Dual Mode**: CLI mode (Claude, Codex, Cursor, etc.) and API mode (OpenAI, Anthropic, etc.)
-- 🎯 **Multi-CLI Support**: Claude CLI, Codex CLI, Cursor Agent, OpenCode, Gemini (agy), Grok, OMP
-- 🎨 **Custom Prompts**: Add project-specific commit message conventions
-- 💻 **Windows Optimized**: Perfect support for Windows paths, command detection, and model lists
-- ⚡ **Lightweight**: Clean codebase, focused on core functionality
-
-## 📸 Screenshots
-
-### Settings Interface
-![Settings](docs/images/settings.png)
-
-### Generate Commit Message
-![Generate](docs/images/generate.png)
+- 🤖 **AI-Powered**: Generate commit messages by analyzing the changes you selected in the commit panel
+- 🎯 **Multi-CLI Support**: Claude, Codex, Cursor Agent, OpenCode, Gemini (agy), Grok, OMP
+- 🔐 **No API Key**: Reuses each CLI's own login; nothing sensitive is stored in the IDE
+- 🎨 **Custom Prompts**: Append project-specific commit conventions to the built-in prompt
+- 📊 **Recent Commits Reference**: Optionally feed the last 10 commit messages to the AI to keep the style consistent
+- 📏 **Diff Length Control**: Configurable maximum diff length sent to the AI
+- 🌐 **Output Language**: Chinese (default) or English commit messages
+- 🖥️ **CLI Tools Sidebar**: One tool window per CLI with optional high-permission startup
+- 🔗 **External Editor Jump**: Open the current file in VS Code / Cursor / Antigravity
+- 💻 **Windows Optimized**: `.exe`/`.cmd`/`.bat` detection, npm and nvm-windows paths
 
 ## 🚀 Quick Start
 
 ### 1. Install a CLI Tool
 
-Choose one of the supported CLI tools:
+Install and log in to at least one supported CLI, for example:
 
-#### Claude CLI (Recommended)
 ```bash
-npm install -g @anthropic-ai/claude-cli
+# Claude CLI (recommended)
+npm install -g @anthropic-ai/claude-code
 claude /login
-```
 
-#### Codex CLI
-```bash
-npm install -g @openai/codex-cli
+# Codex CLI
+npm install -g @openai/codex
 codex login
 ```
 
-#### Cursor Agent
-```bash
-npm install -g @cursor/agent
-cursor-agent login
-```
+### 2. Install the Plugin
 
-### 2. Install Plugin
-
-**From Marketplace (Coming Soon)**
-- Open IntelliJ IDEA
-- Go to `Settings` → `Plugins` → `Marketplace`
-- Search for "SubMsg"
-- Click `Install`
-
-**From Release**
-- Download the latest `.zip` from [Releases](https://github.com/hwglhj/submsg/releases)
-- Open IntelliJ IDEA
-- Go to `Settings` → `Plugins` → `⚙️` → `Install Plugin from Disk...`
-- Select the downloaded `.zip` file
+- Build it: `./gradlew buildPlugin` produces `build/distributions/generateCommitMessage-1.0.0.zip`
+- Open IntelliJ IDEA → `Settings` → `Plugins` → `⚙️` → `Install Plugin from Disk...`
+- Select the `.zip` file and restart the IDE
 
 ### 3. Configure
 
-1. Open `Settings` → `Tools` → `SubMsg - AI Commit`
-2. Select **CLI Mode** or **API Mode**
-3. For CLI mode:
-   - Select your CLI (e.g., Claude)
-   - Enter model name (e.g., `claude-sonnet-4-6`)
-   - Click `Test` to verify
-4. For API mode:
-   - Click `Add` to create a new API configuration
-   - Fill in Base URL, API Key, and Model
-   - Click `Test` to verify
+Open `Settings` → `Tools` → `Generate Commit Message`.
+
+**AI Commit tab**
+
+1. Choose the CLI and model (the model list is fetched from the CLI; you can also type any model name)
+2. Pick a thinking level where the CLI supports it
+3. Click `Test` to verify the CLI is installed and logged in
+4. Optionally add an extra prompt (appended after the built-in prompt, which you can inspect with `View built-in prompt`)
+5. Enhanced options:
+   - ☑ Include recent commits as a style reference (last 10)
+   - Max diff length in characters (default 5000, minimum 500)
+   - Output language: Chinese or English
+
+**CLI Tools tab**
+
+- Toggle the sidebar icon for each CLI tool
+- Enable high-permission startup flags per tool (for example `claude --permission-mode bypassPermissions`)
 
 ### 4. Use
 
 1. Make some code changes
-2. Open VCS commit window
-3. Click **"AI Generate Commit Message"** button
-4. Review and edit the generated message
-5. Commit!
+2. Open the VCS commit panel and select the files to include
+3. Click the ⚡ **Generate Commit Message** button next to the message box
+4. Review or edit the generated message, then commit
+
+The generation runs as a cancellable background task; cancelling or failing restores whatever you had typed.
 
 ## 🛠️ Supported CLIs
 
@@ -98,49 +86,40 @@ cursor-agent login
 
 ## 📋 System Requirements
 
-- **IntelliJ IDEA**: 2021.1 or later (Community / Ultimate)
-- **Java**: 11 or later
-- **OS**: Windows 10/11, macOS 10.14+, Linux
-
-### Windows-Specific
-
-SubMsg is optimized for Windows with:
-- ✅ Support for `.exe`, `.cmd`, `.bat` executables
-- ✅ Windows path detection (Program Files, AppData, etc.)
-- ✅ `where` command for CLI detection
-- ✅ Proper PATH separator (`;` vs `:`)
-- ✅ nvm-windows support
+- **IntelliJ IDEA**: 2021.1 or later (Community / Ultimate), the Terminal plugin must be enabled
+- **Java**: 17 for building
+- **OS**: Windows 10/11, macOS, Linux
 
 ## 🔧 Advanced Configuration
 
 ### Custom Prompts
 
-Add project-specific requirements in the "Custom Prompt" field:
+Add project-specific requirements in the "Additional prompt" field, for example:
 
 ```
-Follow conventional commits format.
-Use emoji prefixes: ✨ feat, 🐛 fix, 📝 docs, ♻️ refactor
-Keep subject line under 50 characters.
+Always use the scope "core".
+Reference the Jira ticket from the branch name in the footer.
 ```
 
-### API Mode
+### Where settings are stored
 
-Supports any OpenAI-compatible API:
+- AI Commit: `ai-commit.xml` in the IDE options directory
+- CLI Tools: `fs-cli-tools.xml` in the IDE options directory
 
-- **OpenAI**: `https://api.openai.com/v1`
-- **Anthropic**: `https://api.anthropic.com/v1`
-- **Azure OpenAI**: `https://your-resource.openai.azure.com/openai/deployments/your-deployment`
-- **Local LLM**: `http://localhost:1234/v1`
+## 🧑‍💻 Development
+
+```bash
+./gradlew compileKotlin        # compile
+./gradlew test                 # unit tests
+./gradlew buildPlugin          # build/distributions/generateCommitMessage-1.0.0.zip
+./gradlew runIde               # start a sandbox IDE with the plugin
+```
+
+Design notes live in `docs/superpowers/specs/` and the implementation plan in `docs/superpowers/plans/`.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m '✨ Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Contributions are welcome. Please open a Pull Request.
 
 ## 📝 License
 
@@ -149,21 +128,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - Based on [cli-tools-idea](https://github.com/l-ning/cli-tools-idea) by [@l-ning](https://github.com/l-ning)
-- Inspired by the amazing AI CLI tools from Anthropic, OpenAI, and others
-
-## 📮 Contact
-
-- **Author**: hwglhj
-- **Issues**: [GitHub Issues](https://github.com/hwglhj/submsg/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/hwglhj/submsg/discussions)
-
-## 🗺️ Roadmap
-
-- [ ] Publish to JetBrains Marketplace
-- [ ] Support more AI providers
-- [ ] Add commit message templates
-- [ ] Multi-language support
-- [ ] Batch commit message generation
+- Inspired by the AI CLI tools from Anthropic, OpenAI, and others
 
 ---
 

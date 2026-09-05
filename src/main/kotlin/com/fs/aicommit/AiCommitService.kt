@@ -51,8 +51,13 @@ class AiCommitService(private val project: Project?) {
         }
         indicator?.checkCanceled()
 
-        indicator?.text = "读取近期提交（风格参考）..."
-        val prompt = AiCommitPrompts.buildFullPrompt(diff, collectRecentCommits(), settings.customPrompt)
+        val recentCommits = if (settings.includeRecentCommits) {
+            indicator?.text = "读取近期提交（风格参考）..."
+            collectRecentCommits()
+        } else {
+            ""
+        }
+        val prompt = AiCommitPrompts.buildFullPrompt(diff, recentCommits, settings.customPrompt, settings.outputLanguage)
         indicator?.checkCanceled()
 
         indicator?.text = "调用 ${sdk.displayName}（$model）生成中..."
@@ -71,7 +76,7 @@ class AiCommitService(private val project: Project?) {
     // ---------------------------------------------------------------
 
     fun generateDiff(changes: Collection<Change>, unversionedFiles: Collection<FilePath> = emptyList()): String {
-        val maxDiffLength = settings.maxDiffLength.coerceAtLeast(500)
+        val maxDiffLength = settings.maxDiffLength.coerceAtLeast(AiCommitSettings.MIN_MAX_DIFF_LENGTH)
         val diff = StringBuilder()
         for (change in changes) {
             try {
@@ -169,12 +174,12 @@ class AiCommitService(private val project: Project?) {
 
     /**
      * 读取仓库近期提交消息作为风格参考
-     * （对应 /git-commit-push 的 `git log -5 --pretty=format:%B`）。
+     * （对应 /git-commit-push 的 `git log --pretty=format:%B`，条数见 [AiCommitSettings.RECENT_COMMITS_COUNT]）。
      */
     private fun collectRecentCommits(): String {
         val basePath = project?.basePath ?: return ""
         return try {
-            val pb = ProcessBuilder("git", "log", "-5", "--pretty=format:%B")
+            val pb = ProcessBuilder("git", "log", "-${AiCommitSettings.RECENT_COMMITS_COUNT}", "--pretty=format:%B")
             pb.directory(File(basePath))
             pb.environment()["PATH"] = SdkManager.pathEnv()
             pb.redirectErrorStream(false)
@@ -194,24 +199,6 @@ class AiCommitService(private val project: Project?) {
     // ---------------------------------------------------------------
     // SDK 调用（非交互模式，复用 SDK 登录凭证）
     // ---------------------------------------------------------------
-
-    /**
-     * 通用提示词执行入口（供行内编辑等功能复用）：
-     * 检测指定 CLI 并调用，返回原始输出；不传 [sdk]/[model] 时使用 AI Commit 的配置。
-     */
-    fun runPrompt(
-        prompt: String,
-        indicator: ProgressIndicator? = null,
-        sdk: SdkDefinition = settings.activeSdk(),
-        model: String = settings.modelFor(sdk)
-    ): String {
-        val status = SdkManager.detect(sdk, null)
-        if (!status.installed || status.path == null) {
-            throw RuntimeException("未检测到 ${sdk.displayName}（${sdk.binName} 命令），请先安装并登录")
-        }
-        indicator?.text = "调用 ${sdk.displayName}（${model.ifBlank { "默认模型" }}）..."
-        return runSdk(sdk, status.path, prompt, model, indicator)
-    }
 
     private fun runSdk(
         sdk: SdkDefinition,

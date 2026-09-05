@@ -1,1 +1,1 @@
-rootProject.name = "cli-tools-idea"
+rootProject.name = "generateCommitMessage"

@@ -8,18 +8,19 @@
 AI-powered Git commit message generator with CLI tools integration.
 
 Features:
-- Generate high-quality commit messages using AI (Claude, Codex, Cursor, etc.)
-- Dual mode: CLI mode and API mode
-- Customizable prompts and output language
-- Integrated CLI terminal tools sidebar
+- Generate high-quality commit messages using AI CLIs (Claude, Codex, Cursor, OpenCode, Gemini, Grok, OMP)
+- Reuses each CLI's own login, no API key stored in the IDE
+- Customizable prompts, recent-commit style reference, diff length limit and output language (Chinese / English)
+- Integrated CLI terminal tools sidebar with per-tool high-permission startup
 - External editor jump support
 ]]></description>
 
     <change-notes><![CDATA[
         <h3>1.0.0</h3>
         <ul>
-            <li>首次发布：整合 AI Commit、AI Inline、API Search、CLI Tools 功能</li>
-            <li>统一配置界面，标签页布局</li>
+            <li>首次发布：AI Commit 生成 + CLI Tools 侧边栏</li>
+            <li>统一配置界面：Settings → Tools → Generate Commit Message，AI Commit / CLI Tools 两个标签页</li>
+            <li>AI Commit 增强选项：近期提交风格参考、Diff 最大长度、输出语言（中文/英文）</li>
         </ul>
     ]]></change-notes>
 
@@ -47,27 +48,12 @@ Features:
                 icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
         </action>
-        <action id="com.fs.aicommit.InlineEdit"
-                class="com.fs.aicommit.InlineEditAction"
-                text="AI 行内修改选中代码"
-                description="划中代码后用 AI 按指令直接修改（行内替换，可撤销）">
-            <keyboard-shortcut keymap="$default" first-keystroke="control K"/>
-            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta K"/>
-            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta K"/>
-            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
-        </action>
-        <action id="com.fs.aicommit.InlineComment"
-                class="com.fs.aicommit.InlineCommentAction"
-                text="AI 生成注释"
-                description="为选中代码生成高质量注释（不改动逻辑）"/>
     </actions>
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="com.fs.aicommit.AiCommitSettings"/>
-        <applicationService serviceImplementation="com.fs.aicommit.AiInlineService"/>
         <notificationGroup id="RestfulToolkit.AiCommit" displayType="BALLOON"/>
         <applicationService serviceImplementation="com.fs.terminal.CliToolsSettings"/>
-        <completion.contributor language="any" implementationClass="com.fs.aicommit.AiInlineCompletionProvider"/>
         <toolWindow id="Claude" anchor="right" secondary="false"
                     icon="/icons/claude.svg"
                     factoryClass="com.fs.terminal.ClaudeToolWindowFactory"/>

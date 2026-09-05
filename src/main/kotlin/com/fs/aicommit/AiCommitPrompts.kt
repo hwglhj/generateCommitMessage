@@ -4,9 +4,9 @@ package com.fs.aicommit
  * AI 生成 Commit Message 所用的提示词。
  * 规范对齐 Claude Code 的 /git-commit-push 命令（~/.claude/commands/git-commit-push.md）
  * 与 Codex 的 git-commit-push 技能（~/.codex/skills/git-commit-push/SKILL.md）：
- * - description/body/footer 使用简体中文，type/scope 保持英文
+ * - description/body/footer 默认使用简体中文，type/scope 保持英文；输出语言可在设置中切换为英文
  * - 主题行概括变更的主要结果，而不是罗列文件名
- * - 除非是琐碎变更，默认带 body（2-5 条具体的中文要点）
+ * - 除非是琐碎变更，默认带 body（2-5 条具体的要点）
  * - 参考仓库近期提交风格
  * - 不带签名、元信息、emoji
  */
@@ -81,40 +81,28 @@ Scope 是描述代码库某一部分的简短英文名词，在整个项目中�
 - 不要在一个提交中混合描述多个不相关的逻辑变更；不要在主题中堆砌实现细节；不要包含敏感信息
 """.trimIndent()
 
-    val BUILTIN_INLINE_PROMPT = """
-你是一位专业的代码助手，负责根据用户指令修改选中的代码。
-
-## 核心原则
-
-- 只输出修改后的代码，不要添加任何解释或说明
-- 保持代码风格与原代码一致
-- 优先考虑代码的可读性和可维护性
-- 遵循项目的编码规范
-
-## 修改要求
-
-- 严格按照用户的指令修改代码
-- 不要添加用户未要求的功能
-- 不要删除用户未要求删除的代码
-- 如果用户要求添加注释，注释应该清晰准确
-
-## 输出格式
-
-- 直接输出修改后的完整代码
-- 不要包含任何解释性文字
-- 不要使用代码块标记（```）
-- 不要添加额外的空行
-""".trimIndent()
+    const val RECENT_COMMITS_SECTION_TITLE = "## 仓库近期提交记录（风格参考）"
+    const val USER_PROMPT_SECTION_TITLE = "## 用户附加要求（优先遵循）"
+    const val ENGLISH_OUTPUT_SECTION_TITLE = "## 输出语言（优先级高于上文的语言要求）"
 
     /**
-     * 组装完整提示词：内置规范 + 近期提交风格参考 + 用户附加要求 + git diff + 输出格式约束。
+     * 组装完整提示词：内置规范 + 近期提交风格参考 + 用户附加要求 + 输出语言 + git diff + 输出格式约束。
+     *
+     * @param outputLanguage [AiCommitSettings.LANGUAGE_ZH]（默认）或 [AiCommitSettings.LANGUAGE_EN]；
+     *        其他值按中文处理
      */
-    fun buildFullPrompt(diff: String, recentCommits: String, userAdditionalPrompt: String): String {
+    fun buildFullPrompt(
+        diff: String,
+        recentCommits: String,
+        userAdditionalPrompt: String,
+        outputLanguage: String = AiCommitSettings.LANGUAGE_ZH,
+    ): String {
+        val english = outputLanguage.equals(AiCommitSettings.LANGUAGE_EN, ignoreCase = true)
         val sb = StringBuilder()
         sb.append(BUILTIN_COMMIT_PROMPT)
 
         if (recentCommits.isNotBlank()) {
-            sb.append("\n\n## 仓库近期提交记录（风格参考）\n\n")
+            sb.append("\n\n").append(RECENT_COMMITS_SECTION_TITLE).append("\n\n")
             sb.append("```\n")
             sb.append(recentCommits.trim())
             sb.append("\n```")
@@ -122,9 +110,15 @@ Scope 是描述代码库某一部分的简短英文名词，在整个项目中�
 
         val extra = userAdditionalPrompt.trim()
         if (extra.isNotEmpty()) {
-            sb.append("\n\n## 用户附加要求（优先遵循）\n\n")
+            sb.append("\n\n").append(USER_PROMPT_SECTION_TITLE).append("\n\n")
             sb.append("以下是用户的额外要求，请在生成 commit message 时优先考虑这些要求：\n\n")
             sb.append(extra)
+        }
+
+        if (english) {
+            sb.append("\n\n").append(ENGLISH_OUTPUT_SECTION_TITLE).append("\n\n")
+            sb.append("- description、body、footer 全部使用**英文**，不要输出任何中文；type 和 scope 保持英文\n")
+            sb.append("- Write the subject line, every body bullet and the footer in English.")
         }
 
         sb.append("\n\n---\n\n")
@@ -136,10 +130,17 @@ Scope 是描述代码库某一部分的简短英文名词，在整个项目中�
         sb.append("\n\n【输出格式要求 - 必须严格遵守】\n")
         sb.append("请将 commit message 用 XML 标签包裹输出，格式如下：\n")
         sb.append("<commit>\n")
-        sb.append("type(scope): 中文描述\n")
-        sb.append("\n")
-        sb.append("- 中文要点1\n")
-        sb.append("- 中文要点2\n")
+        if (english) {
+            sb.append("type(scope): short English description\n")
+            sb.append("\n")
+            sb.append("- English bullet 1\n")
+            sb.append("- English bullet 2\n")
+        } else {
+            sb.append("type(scope): 中文描述\n")
+            sb.append("\n")
+            sb.append("- 中文要点1\n")
+            sb.append("- 中文要点2\n")
+        }
         sb.append("</commit>\n\n")
         sb.append("重要规则：\n")
         sb.append("1. 必须使用 <commit> 和 </commit> 标签包裹\n")
