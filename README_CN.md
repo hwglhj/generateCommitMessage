@@ -20,6 +20,44 @@
 
 AI Inline 和 REST API Search 已从最终范围移除。
 
+## 界面预览
+
+### 管理多个 API 站点和模型
+
+API 模式可以添加、编辑、删除、测试、导入和导出多个服务配置。每个站点独立保存当前模型，激活配置可直接切换；API Key 仍保存在 IntelliJ PasswordSafe 中。
+
+![API 站点与模型管理](docs/images/api-sites.png)
+
+### 添加 API 配置
+
+支持配置 OpenAI Compatible、Anthropic 或自定义服务，填写 Base URL 和 API Key 后，可以手动输入模型，也可以从服务获取模型列表；需要时还可启用推理模型兼容模式。
+
+![添加 API 配置](docs/images/add-api-site.png)
+
+### 配置 CLI 侧边栏工具
+
+可以独立控制各 CLI 图标是否显示，并为支持额外权限参数的工具开启高权限启动。Pi 默认继承当前进程权限，因此没有单独的高权限开关。
+
+![CLI Tools 设置](docs/images/cli-tools-settings.png)
+
+### 在编辑器标签中打开 CLI 终端
+
+点击右侧栏图标，可以把 Claude、Codex、Cursor、OpenCode、Antigravity、Grok、OMP 或 Pi 打开在 IDE 编辑器标签中。每次点击都可以在当前项目中新建独立终端会话。
+
+![编辑器中的 Codex 终端](docs/images/codex-terminal.png)
+
+### 生成提交信息
+
+在 Commit 工具窗口勾选需要提交的变更，然后点击闪电按钮。插件只分析已选择的变更，应用当前提示词和输出语言，并把生成的 Conventional Commit 信息写入提交框。
+
+![根据选中变更生成提交信息](docs/images/generate-commit-message.png)
+
+### 在提交窗口快速切换站点和模型
+
+闪电按钮旁的模型列表按钮会打开按站点分组的模型菜单。当前站点带有勾选标记，无需进入设置即可切换模型；生成失败时也会自动打开同一选择器，方便切换后重试。
+
+![快速切换 API 站点和模型](docs/images/quick-model-switcher.png)
+
 ## 安装与配置
 
 最低 IntelliJ IDEA 2022.2，需启用 IDE 自带 Terminal 插件。编译基线为平台 222、Java 17；更新的 IDE 版本仍需安装验证。
