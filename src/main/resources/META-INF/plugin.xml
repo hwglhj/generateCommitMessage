@@ -2,17 +2,21 @@
 <idea-plugin>
     <id>com.fs.generateCommitMessage</id>
     <name>Generate Commit Message</name>
-    <vendor email="support@example.com" url="https://github.com/hwglhj/generateCommitMessage">FS</vendor>
+    <vendor url="https://github.com/hwglhj/generateCommitMessage">hwglhj</vendor>
 
     <description><![CDATA[
 AI-powered Git commit message generator with CLI tools integration.
 
 Features:
-- Generate high-quality commit messages using AI CLIs (Claude, Codex, Cursor, OpenCode, Gemini, Grok, OMP)
-- Reuses each CLI's own login, no API key stored in the IDE
+- Generate high-quality commit messages using AI CLIs (Claude, Codex, Cursor, OpenCode, Gemini, Grok, OMP, Pi)
+- CLI mode reuses each tool's login. API mode supports OpenAI-compatible and Anthropic services with multiple configurations and PasswordSafe key storage.
 - Customizable prompts, recent-commit style reference, diff length limit and output language (Chinese / English)
-- Integrated CLI terminal tools sidebar with per-tool high-permission startup
-- External editor jump support
+- Integrated CLI terminal tools sidebar with per-tool visibility and supported high-permission startup
+- Independent Chinese / English interface and commit message language
+- Windows npm / nvm detection and process cancellation
+- External editor jump support: VS Code, Cursor, Antigravity and Windsurf
+
+Based on l-ning/cli-tools-idea. Requires IntelliJ IDEA 2022.2 or later with the Terminal plugin.
 ]]></description>
 
     <change-notes><![CDATA[
@@ -21,6 +25,8 @@ Features:
             <li>首次发布：AI Commit 生成 + CLI Tools 侧边栏</li>
             <li>统一配置界面：Settings → Tools → Generate Commit Message，AI Commit / CLI Tools 两个标签页</li>
             <li>AI Commit 增强选项：近期提交风格参考、Diff 最大长度、输出语言（中文/英文）</li>
+            <li>重建第三方 API 多配置、PasswordSafe 密钥存储、模型获取与连接测试</li>
+            <li>恢复独立中英文界面和外部编辑器选择，修复 Windows 进程启动与设置状态</li>
         </ul>
     ]]></change-notes>
 
@@ -36,7 +42,8 @@ Features:
         <action id="com.fs.ShowInFinder"
                 class="com.fs.ShowInFinderAction"
                 text="Open in External Editor"
-                description="Open current file in external editor (VS Code / Cursor / Antigravity)">
+                description="Open current file in the configured external editor">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="shift meta P"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="shift meta P"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="shift meta P"/>
@@ -47,6 +54,13 @@ Features:
                 description="使用 AI 根据选中的变更生成 commit message"
                 icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
+        </action>
+        <action id="com.fs.aicommit.QuickModel"
+                class="com.fs.aicommit.QuickModelAction"
+                text="Switch Commit Model"
+                description="Switch the model used to generate commit messages"
+                icon="AllIcons.Actions.ListChanges">
+            <add-to-group group-id="Vcs.MessageActionGroup" anchor="before" relative-to-action="com.fs.aicommit.GenerateCommitMessage"/>
         </action>
     </actions>
 
@@ -75,6 +89,9 @@ Features:
         <toolWindow id="OMP" anchor="right" secondary="false"
                     icon="/icons/omp.svg"
                     factoryClass="com.fs.terminal.OmpToolWindowFactory"/>
+        <toolWindow id="Pi" anchor="right" secondary="false"
+                    icon="/icons/pi.svg"
+                    factoryClass="com.fs.terminal.PiToolWindowFactory"/>
         <fileEditorProvider implementation="com.fs.terminal.TerminalFileEditorProvider"/>
     </extensions>
 

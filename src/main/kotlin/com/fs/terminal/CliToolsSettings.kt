@@ -26,6 +26,7 @@ class CliToolsSettings : PersistentStateComponent<CliToolsSettings.SettingsState
         var showAntigravityIcon: Boolean = true
         var showGrokIcon: Boolean = true
         var showOmpIcon: Boolean = true
+        var showPiIcon: Boolean = true
     }
 
     private var state = SettingsState()
@@ -44,6 +45,7 @@ class CliToolsSettings : PersistentStateComponent<CliToolsSettings.SettingsState
         CliTool.ANTIGRAVITY -> state.antigravityHighPermission
         CliTool.GROK -> state.grokHighPermission
         CliTool.OMP -> state.ompHighPermission
+        CliTool.PI -> false
     }
 
     fun setHighPermission(tool: CliTool, value: Boolean) = when (tool) {
@@ -54,6 +56,7 @@ class CliToolsSettings : PersistentStateComponent<CliToolsSettings.SettingsState
         CliTool.ANTIGRAVITY -> state.antigravityHighPermission = value
         CliTool.GROK -> state.grokHighPermission = value
         CliTool.OMP -> state.ompHighPermission = value
+        CliTool.PI -> Unit
     }
 
     fun isShowIcon(tool: CliTool): Boolean = when (tool) {
@@ -64,6 +67,7 @@ class CliToolsSettings : PersistentStateComponent<CliToolsSettings.SettingsState
         CliTool.ANTIGRAVITY -> state.showAntigravityIcon
         CliTool.GROK -> state.showGrokIcon
         CliTool.OMP -> state.showOmpIcon
+        CliTool.PI -> state.showPiIcon
     }
 
     fun setShowIcon(tool: CliTool, value: Boolean) = when (tool) {
@@ -74,6 +78,7 @@ class CliToolsSettings : PersistentStateComponent<CliToolsSettings.SettingsState
         CliTool.ANTIGRAVITY -> state.showAntigravityIcon = value
         CliTool.GROK -> state.showGrokIcon = value
         CliTool.OMP -> state.showOmpIcon = value
+        CliTool.PI -> state.showPiIcon = value
     }
 
     companion object {

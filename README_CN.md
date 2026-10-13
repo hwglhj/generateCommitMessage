@@ -1,152 +1,46 @@
-# Generate Commit Message - AI 驱动的 Git 提交信息生成器
+# Generate Commit Message
 
-[![版本](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/hwglhj/generateCommitMessage)
-[![平台](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/hwglhj/generateCommitMessage)
-[![许可证](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+简体中文 | [English](README.md)
 
-> 基于 [cli-tools-idea](https://github.com/l-ning/cli-tools-idea) 改进的 IntelliJ IDEA 插件，用你本机已安装并登录的 AI CLI 生成提交信息，针对 Windows 优化。
+基于 [l-ning/cli-tools-idea](https://github.com/l-ning/cli-tools-idea) 的 IntelliJ IDEA 插件，维护者 hwglhj。
 
-[English](README.md) | [简体中文](README_CN.md)
+## 功能
 
-## ✨ 特性
+- 根据提交面板勾选的变更生成提交信息，包括未跟踪文件；未勾选变更时不会发送全部文件。
+- CLI 模式保留 Claude、Codex、Cursor Agent、OpenCode、Gemini/agy、Grok、OMP、Pi，复用各 CLI 登录，支持模型输入、搜索、刷新、思考等级和测试。Pi（`pi`）与 OMP（`omp`）是两个独立 CLI，分别复用各自配置的模型提供方和凭证。
+- API 模式支持多个 OpenAI Compatible、Anthropic 和自定义配置，提供添加、编辑、删除、激活、模型获取和连接测试。每个站点可以保存多个模型，提交面板菜单按“站点 > 模型”快速切换；自定义提供商采用 OpenAI chat-completions 协议。
+- API Key 使用 IntelliJ PasswordSafe 保存，不写入插件的 XML 配置；存储期限遵循 IDE 的密码设置，包括仅内存模式。
+- API 站点支持 JSON 导入和导出。导出默认不包含 API Key，可勾选并确认后导出明文密钥；导入同 ID 站点会覆盖配置，没有密钥的导入会保留本机 PasswordSafe 密钥。
+- 附加提示词、只读内置提示词、清空附加提示词、最近 10 条提交风格参考、Diff 长度限制（默认 5000 字符，最小 500）。
+- 界面默认中文，可切换英文并在保存后刷新；提交信息输出语言独立设置。
+- 右侧保留 8 个 CLI 终端入口，每个工具独立控制图标；仅对支持额外权限参数的 CLI 显示高权限启动开关。
+- 外部编辑器可选 VS Code、Cursor、Antigravity、Windsurf，打开当前文件并携带光标行列。
+- Windows 支持原生程序与 npm 启动器、npm/nvm 环境路径、生成取消和进程超时。
+- 提交面板闪电按钮旁提供快速切换模型；打开 API 菜单会后台重新请求每个站点的完整模型列表，一级菜单用勾选和“站点 — 当前模型”标记当前激活站点；生成失败时自动打开同一模型列表，切换后再次点击闪电即可重试。
 
-- 🤖 **AI 驱动**：分析提交面板中勾选的变更，自动生成提交信息
-- 🎯 **多 CLI 支持**：Claude、Codex、Cursor Agent、OpenCode、Gemini (agy)、Grok、OMP
-- 🔐 **无需 API Key**：复用各 CLI 自身的登录凭证，IDE 中不保存任何密钥
-- 🎨 **自定义提示词**：在内置提示词之后叠加项目特定的提交规范
-- 📊 **近期提交风格参考**：可选把最近 10 条提交信息传给 AI，保持风格一致
-- 📏 **Diff 长度控制**：可配置传给 AI 的 diff 最大长度
-- 🌐 **输出语言**：中文（默认）或英文提交信息
-- 🖥️ **CLI Tools 侧边栏**：每个 CLI 一个工具窗口，可按需高权限启动
-- 🔗 **外部编辑器跳转**：在 VS Code / Cursor / Antigravity 中打开当前文件
-- 💻 **Windows 优化**：支持 `.exe`/`.cmd`/`.bat` 检测、npm 与 nvm-windows 路径
+AI Inline 和 REST API Search 已从最终范围移除。
 
-## 🚀 快速开始
+## 安装与配置
 
-### 1. 安装 CLI 工具
+最低 IntelliJ IDEA 2022.2，需启用 IDE 自带 Terminal 插件。编译基线为平台 222、Java 17；更新的 IDE 版本仍需安装验证。
 
-至少安装并登录一个支持的 CLI，例如：
+从 `build/distributions/generateCommitMessage-1.0.0.zip` 安装：设置 > 插件 > 从磁盘安装插件，安装后重启 IDE。
 
-```bash
-# Claude CLI（推荐）
-npm install -g @anthropic-ai/claude-code
-claude /login
+配置入口为 **设置 > 工具 > Generate Commit Message**，仅有 **AI Commit** 和 **CLI Tools** 两个标签页。页面上方设置界面语言和外部编辑器。
 
-# Codex CLI
-npm install -g @openai/codex
-codex login
+CLI 模式需要先在本机安装并登录对应 CLI。可执行文件路径留空自动检测，手动路径用于当前 AI Commit CLI。模型列表可能包含公开目录和内置候选，真实可用性以“测试”结果为准。Pi 的模型列表来自本机 `pi --list-models`。高权限开关传递 CLI 自身的权限参数，不代表 Windows 管理员提权；Pi 默认继承当前进程权限，因此不显示单独的高权限开关。
+
+API 模式不要求本机安装 CLI。填写 Base URL、API Key、模型，选中激活配置后保存；提供商没有 `/models` 接口时可直接手填模型，当前模型和候选模型都会保存。设置页站点操作行提供导入和导出，文件选择兼容 Windows 路径和中文文件名。自定义模式仅适用于兼容 chat-completions 的服务。
+
+## Windows 构建
+
+使用本机已有 JDK 17 和 Gradle 7.4.2：
+
+```powershell
+& 'D:\gradle-7.4.2\bin\gradle.bat' test --no-daemon
+& 'D:\gradle-7.4.2\bin\gradle.bat' buildPlugin --no-daemon
 ```
 
-### 2. 安装插件
+产物在 `build/distributions/`，测试临时文件在 `tmp/tests/`。本地构建不需要暂存、提交或推送 Git。
 
-- 构建：`./gradlew buildPlugin`，产物为 `build/distributions/generateCommitMessage-1.0.0.zip`
-- 打开 IntelliJ IDEA → `设置` → `插件` → `⚙️` → `从磁盘安装插件...`
-- 选择该 `.zip` 文件并重启 IDE
-
-### 3. 配置
-
-打开 `设置` → `工具` → `Generate Commit Message`。
-
-**AI Commit 标签页**
-
-1. 选择 CLI 与模型（模型列表从 CLI 拉取，也可手动输入任意模型名）
-2. 支持思考等级的 CLI 可选择思考等级
-3. 点击 `测试` 验证 CLI 已安装并登录
-4. 可选填写附加提示词（叠加在内置提示词之后，可点 `查看内置提示词` 查看）
-5. 增强选项：
-   - ☑ 包含近期提交风格参考（最近 10 条）
-   - Diff 最大长度（字符数，默认 5000，最小 500）
-   - 输出语言：中文 / 英文
-
-**CLI Tools 标签页**
-
-- 逐个开关各 CLI 工具的侧边栏图标
-- 逐个开启高权限启动参数（例如 `claude --permission-mode bypassPermissions`）
-
-### 4. 使用
-
-1. 修改一些代码
-2. 打开 VCS 提交面板，勾选要提交的文件
-3. 点击提交信息框旁的 ⚡ **Generate Commit Message** 按钮
-4. 审查或编辑生成的信息，然后提交
-
-生成过程是可取消的后台任务；取消或失败时会恢复你原先输入的内容。
-
-## 🛠️ 支持的 CLI
-
-| CLI | ID | 默认模型 | 思考等级 |
-|-----|----|---------:|---------|
-| **Claude CLI** | `claude` | claude-sonnet-4-6 | low, medium, high, xhigh, max |
-| **Codex CLI** | `codex` | gpt-5.5 | minimal, low, medium, high, xhigh |
-| **Cursor Agent** | `cursor` | auto | - |
-| **OpenCode** | `opencode` | （已配置）| - |
-| **Gemini (agy)** | `gemini` | Gemini 3.1 Pro (High) | （包含在模型名中）|
-| **Grok** | `grok` | grok-4.1 | - |
-| **OMP** | `omp` | （已配置）| off, minimal, low, medium, high, xhigh, max, auto |
-
-## 📋 系统要求
-
-- **IntelliJ IDEA**：2021.1 或更高版本（社区版 / 旗舰版），需启用 Terminal 插件
-- **Java**：构建需要 JDK 17
-- **操作系统**：Windows 10/11、macOS、Linux
-
-## 🔧 高级配置
-
-### 自定义提示词
-
-在"附加提示词"中添加项目特定要求，例如：
-
-```
-scope 固定使用 core。
-在 footer 中引用分支名里的 Jira 单号。
-```
-
-### 配置文件位置
-
-- AI Commit：IDE options 目录下的 `ai-commit.xml`
-- CLI Tools：IDE options 目录下的 `fs-cli-tools.xml`
-
-## 🐛 故障排除
-
-### Windows 下检测不到 CLI
-
-1. 在终端确认 CLI 可用：`claude --version` 或 `codex --version`
-2. 命令未找到时把 npm 全局目录（通常是 `%APPDATA%\npm`）加入 PATH
-3. 重启 IntelliJ IDEA
-
-### 模型列表获取失败
-
-1. 确认 CLI 已登录（`claude /login`、`codex login`）
-2. 点击 `刷新模型列表` 重试，或直接手动输入模型名
-
-### 生成失败提示需要登录
-
-插件复用 CLI 自身的凭证，请先在终端完成对应 CLI 的登录或认证配置。
-
-## 🧑‍💻 开发
-
-```bash
-./gradlew compileKotlin        # 编译
-./gradlew test                 # 单元测试
-./gradlew buildPlugin          # 生成 build/distributions/generateCommitMessage-1.0.0.zip
-./gradlew runIde               # 启动带插件的沙箱 IDE
-```
-
-设计文档见 `docs/superpowers/specs/`，实现计划见 `docs/superpowers/plans/`。
-
-## 🤝 贡献
-
-欢迎贡献，请直接提交 Pull Request。
-
-## 📝 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 🙏 致谢
-
-- 基于 [@l-ning](https://github.com/l-ning) 的 [cli-tools-idea](https://github.com/l-ning/cli-tools-idea) 项目
-- 感谢 Anthropic、OpenAI 等公司提供的优秀 AI CLI 工具
-
----
-
-⭐ 如果觉得这个项目有用，请给个 star！
+详见[安装与验收](INSTALL_GUIDE.md)、[功能映射](FEATURE_SUMMARY.md)、[验证记录](FINAL_SUMMARY.md)和[文档索引](DOCS_INDEX.md)。自动化测试与打包通过不等于所有真实 API、CLI 版本和 IDE 版本均已实测。

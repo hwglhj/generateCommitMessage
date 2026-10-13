@@ -1,5 +1,6 @@
 package com.fs.aicommit
 
+import com.fs.i18n.SubMsgBundle.message as tr
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -13,6 +14,8 @@ import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.FlowLayout
 import javax.swing.DefaultComboBoxModel
+import javax.swing.DefaultListCellRenderer
+import javax.swing.JList
 import javax.swing.JButton
 import javax.swing.JPanel
 import javax.swing.JTextField
@@ -23,14 +26,14 @@ import javax.swing.event.DocumentListener
 
 /**
  * "CLI + 模型 + 思考等级 + 刷新/测试"组合面板，可在设置页中复用
- * （AI Commit 与行内 AI 修改各持有一份，配置互相独立）。
+ * 用于 AI Commit 的 CLI 配置。
  *
  * - 模型下拉可搜索输入，也可手动输入任意模型名
  * - 思考等级随 CLI 动态计算，跟随模型存储（如 "claude-opus-4-5 high"）；
  *   Gemini 的等级在模型名里，Cursor/OpenCode/Grok 不支持，此时隐藏该下拉
  * - 模型列表缓存跨面板共享（同一 CLI 只拉取一次）
  */
-class ProviderModelPanel(title: String) {
+class ProviderModelPanel(title: String, private val cliPath: () -> String = { "" }) {
 
     private val providerCombo = ComboBox(DefaultComboBoxModel(PROVIDERS.map { it.second }.toTypedArray()))
     private val modelCombo = ComboBox<String>().apply {
@@ -39,13 +42,18 @@ class ProviderModelPanel(title: String) {
     }
     private val thinkingCombo = ComboBox<String>().apply {
         preferredSize = Dimension(JBUI.scale(160), preferredSize.height)
+        renderer = object : DefaultListCellRenderer() {
+            override fun getListCellRendererComponent(list: JList<*>?, value: Any?, index: Int, selected: Boolean, focus: Boolean): java.awt.Component =
+                super.getListCellRendererComponent(list, if (value is String && value.isNotEmpty()) tr("aicommit.thinking.$value") else tr("aicommit.thinking.default"), index, selected, focus)
+        }
     }
-    private val thinkingLabel = JBLabel("思考等级:")
+    private val thinkingLabel = JBLabel(tr("aicommit.thinking.label"))
     private val statusLabel = JBLabel("")
+    private var disposed = false
 
     /** 每个 provider 会话内记住的模型与思考等级（内存缓存） */
-    private val selectedModels = mutableMapOf<String, String>()
-    private val selectedThinking = mutableMapOf<String, String>()
+    private val selection = ProviderModelSelection()
+    private var resetting = false
 
     /** 过滤重建下拉内容时抑制 DocumentListener 递归 */
     private var suppressFilter = false
@@ -61,20 +69,22 @@ class ProviderModelPanel(title: String) {
         installSearchFilter()
 
         providerCombo.addActionListener {
+            if (resetting) return@addActionListener
             // 切换 CLI 前先记住当前输入，再载入目标 CLI 的模型与思考等级
             rememberCurrent(previousProvider)
             previousProvider = selectedProvider()
+            selection.select(previousProvider)
             applyModelsToCombo(selectedProvider())
             applyThinkingToCombo(selectedProvider())
             ensureModelsLoadedAsync(selectedProvider())
         }
 
-        val refreshButton = JButton("刷新模型列表").apply {
-            toolTipText = "刷新所选 CLI 的可用模型列表"
+        val refreshButton = JButton(tr("aicommit.button.refresh")).apply {
+            toolTipText = tr("tooltip.refresh.models")
             addActionListener { fetchModels() }
         }
-        val testButton = JButton("测试").apply {
-            toolTipText = "真实调用一次 CLI，验证登录凭证与所选模型可用"
+        val testButton = JButton(tr("aicommit.button.test")).apply {
+            toolTipText = tr("tooltip.test.connection")
             addActionListener { testCurrent() }
         }
         val buttonLine = JPanel(FlowLayout(FlowLayout.LEFT, 8, 0)).apply {
@@ -87,16 +97,16 @@ class ProviderModelPanel(title: String) {
             border = TitledBorder(title)
             add(
                 FormBuilder.createFormBuilder()
-                    .addLabeledComponent(JBLabel("CLI:"), providerCombo)
+                    .addLabeledComponent(JBLabel(tr("aicommit.cli.label")), providerCombo)
                     .addLabeledComponent(
-                        JBLabel("模型:").apply {
-                            toolTipText = "支持直接输入搜索过滤，也可手动输入任意模型名；留空使用所选 CLI 的默认模型"
+                        JBLabel(tr("aicommit.model.label")).apply {
+                            toolTipText = tr("tooltip.model.input")
                         },
                         modelCombo
                     )
                     .addLabeledComponent(
                         thinkingLabel.apply {
-                            toolTipText = "随模型存储（如 \"xxx high\"）；Gemini 的思考等级在模型名里，Cursor/Grok 不支持"
+                            toolTipText = tr("tooltip.thinking.level")
                         },
                         thinkingCombo
                     )
@@ -119,23 +129,24 @@ class ProviderModelPanel(title: String) {
     /** "模型名 [思考等级]" 组合串（写入设置的最终形态），会先记住当前输入 */
     fun composedModel(): String {
         rememberCurrent(selectedProvider())
-        val provider = selectedProvider()
-        val base = selectedModels[provider].orEmpty()
-        val thinking = selectedThinking[provider].orEmpty()
-        return if (base.isNotBlank() && thinking.isNotBlank()) "$base $thinking" else base
+        return selection.composedModel()
     }
 
     fun isModified(provider: String, model: String): Boolean =
         selectedProvider() != provider || composedModel() != model
 
+    fun dispose() { disposed = true }
+
     fun reset(provider: String, model: String) {
-        val sdk = sdkOf(provider)
-        // 存储形态为 "模型名 [思考等级]"，拆开填充两个下拉
-        val (base, thinking) = SdkDefinition.splitModelThinking(sdk, model)
-        selectedModels[provider] = base
-        selectedThinking[provider] = thinking
-        providerCombo.selectedItem = PROVIDERS.firstOrNull { it.first == provider }?.second ?: PROVIDERS.first().second
+        resetting = true
+        selection.reset(provider, model)
+        try {
+            providerCombo.selectedItem = PROVIDERS.firstOrNull { it.first == provider }?.second ?: PROVIDERS.first().second
+        } finally {
+            resetting = false
+        }
         previousProvider = selectedProvider()
+        selection.select(previousProvider)
         applyModelsToCombo(selectedProvider())
         applyThinkingToCombo(selectedProvider())
         ensureModelsLoadedAsync(selectedProvider())
@@ -154,7 +165,7 @@ class ProviderModelPanel(title: String) {
 
             private fun onChanged() {
                 if (suppressFilter) return
-                SwingUtilities.invokeLater { filterPopup(editor.text) }
+                SwingUtilities.invokeLater { if (!disposed) filterPopup(editor.text) }
             }
         })
     }
@@ -165,14 +176,16 @@ class ProviderModelPanel(title: String) {
         val keyword = input.trim()
         val filtered = if (keyword.isEmpty()) all
         else all.filter { it.contains(keyword, ignoreCase = true) }
+        val editor = modelCombo.editor.editorComponent as? JTextField
+        val caretPosition = editor?.caretPosition ?: input.length
 
         suppressFilter = true
         try {
             val model = DefaultComboBoxModel(filtered.toTypedArray())
             modelCombo.model = model
             // 恢复用户正在输入的文本（setModel 会清掉编辑框）
-            modelCombo.editor.item = keyword
-            (modelCombo.editor.editorComponent as? JTextField)?.caretPosition = keyword.length
+            modelCombo.editor.item = input
+            editor?.caretPosition = caretPosition.coerceIn(0, input.length)
             if (modelCombo.isShowing && filtered.isNotEmpty()) {
                 modelCombo.hidePopup()
                 modelCombo.showPopup()
@@ -197,16 +210,15 @@ class ProviderModelPanel(title: String) {
     }
 
     private fun rememberCurrent(provider: String) {
-        val text = currentModelText()
-        if (text.isNotEmpty()) selectedModels[provider] = text
-        selectedThinking[provider] = currentThinking()
+        selection.select(provider)
+        selection.remember(currentModelText(), currentThinking())
     }
 
     /** 把指定 provider 的候选列表和已选模型写入下拉框 */
     private fun applyModelsToCombo(provider: String) {
         val sdk = sdkOf(provider)
         val list = sharedModelCache[provider] ?: listOf(sdk.defaultModel).filter { it.isNotBlank() }
-        val selected = selectedModels[provider]?.ifBlank { null } ?: sdk.defaultModel
+        val selected = selection.model
         suppressFilter = true
         try {
             val model = DefaultComboBoxModel(list.toTypedArray())
@@ -227,24 +239,26 @@ class ProviderModelPanel(title: String) {
         if (!supported) return
         val items = arrayOf(THINKING_DEFAULT_LABEL) + sdk.thinkingLevels
         thinkingCombo.model = DefaultComboBoxModel(items)
-        val remembered = selectedThinking[provider].orEmpty()
+        val remembered = selection.thinking
         thinkingCombo.selectedItem = if (remembered in sdk.thinkingLevels) remembered else THINKING_DEFAULT_LABEL
     }
 
     /** 后台刷新：每次切换供应商都重新拉取模型列表（先显示缓存，拉取完成后更新） */
     private fun ensureModelsLoadedAsync(provider: String) {
         if (!loadingProviders.add(provider)) return
-        statusLabel.text = "正在拉取模型列表..."
+        statusLabel.text = tr("message.model.loading")
+        val executable = cliPath()
         ApplicationManager.getApplication().executeOnPooledThread {
-            val models = SdkManager.fetchModels(sdkOf(provider))
+            val models = SdkManager.fetchModels(sdkOf(provider), executable)
             // 用纯 Swing 事件队列回到 EDT：设置对话框是模态窗口，
             // Application.invokeLater 会按 ModalityState 排队，回调可能被推迟到对话框关闭，
             // 状态就一直卡在"正在拉取"；这里只更新本面板的 Swing 组件，无需平台模态语义
             SwingUtilities.invokeLater {
+                if (disposed) return@invokeLater
                 loadingProviders.remove(provider)
                 if (models.isNotEmpty()) sharedModelCache[provider] = models
                 if (provider == selectedProvider()) {
-                    statusLabel.text = if (models.isNotEmpty()) "已加载 ${models.size} 个模型" else "拉取模型列表失败，保留原有列表"
+                    statusLabel.text = if (models.isNotEmpty()) tr("message.model.loaded", models.size) else tr("message.model.retained")
                     rememberCurrent(provider)
                     applyModelsToCombo(provider)
                 }
@@ -256,16 +270,17 @@ class ProviderModelPanel(title: String) {
     private fun fetchModels() {
         val provider = selectedProvider()
         sharedModelCache.remove(provider)
-        ProgressManager.getInstance().run(object : Task.Modal(null, "正在刷新模型列表...", false) {
+        val executable = cliPath()
+        ProgressManager.getInstance().run(object : Task.Modal(null, tr("message.model.loading"), false) {
             var models: List<String> = emptyList()
             override fun run(indicator: ProgressIndicator) {
                 indicator.isIndeterminate = true
-                models = SdkManager.fetchModels(sdkOf(provider))
+                models = SdkManager.fetchModels(sdkOf(provider), executable)
             }
 
             override fun onSuccess() {
                 sharedModelCache[provider] = models
-                statusLabel.text = "已加载 ${models.size} 个模型"
+                statusLabel.text = tr("message.model.loaded", models.size)
                 rememberCurrent(provider)
                 applyModelsToCombo(provider)
             }
@@ -276,25 +291,29 @@ class ProviderModelPanel(title: String) {
         val provider = selectedProvider()
         val sdk = sdkOf(provider)
         val model = composedModel().ifBlank { sdk.defaultModel }
-        ProgressManager.getInstance().run(object : Task.Modal(null, "正在测试 ${sdk.displayName}（$model）...", false) {
+        val executable = cliPath()
+        ProgressManager.getInstance().run(object : Task.Modal(null, tr("cli.testing", sdk.displayName, model), true) {
+            init { setCancelText(tr("dialog.button.cancel")) }
             var error: String? = null
             override fun run(indicator: ProgressIndicator) {
                 indicator.isIndeterminate = true
-                error = AiCommitService(null).testSdk(sdk, model)
+                error = AiCommitService(null).testSdk(sdk, model, executable, indicator)
             }
 
             override fun onSuccess() {
                 if (error == null) {
-                    Messages.showInfoMessage("${sdk.displayName} 调用成功，模型 $model 可用。", "测试")
+                    Messages.showDialog(tr("cli.test.success", sdk.displayName, model), tr("aicommit.button.test"),
+                        arrayOf(tr("dialog.button.ok")), 0, Messages.getInformationIcon())
                 } else {
-                    Messages.showErrorDialog("测试失败: $error", "测试")
+                    Messages.showDialog(tr("message.test.failed", error), tr("aicommit.button.test"),
+                        arrayOf(tr("dialog.button.ok")), 0, Messages.getErrorIcon())
                 }
             }
         })
     }
 
     companion object {
-        private const val THINKING_DEFAULT_LABEL = "跟随默认"
+        private const val THINKING_DEFAULT_LABEL = ""
 
         /** provider id -> 设置页展示标签 */
         private val PROVIDERS = listOf(
@@ -304,10 +323,14 @@ class ProviderModelPanel(title: String) {
             AiCommitSettings.PROVIDER_OPENCODE to "OpenCode",
             AiCommitSettings.PROVIDER_GEMINI to "Gemini (agy)",
             AiCommitSettings.PROVIDER_GROK to "Grok",
-            AiCommitSettings.PROVIDER_OMP to "OMP"
+            AiCommitSettings.PROVIDER_OMP to "OMP",
+            AiCommitSettings.PROVIDER_PI to "Pi"
         )
 
         /** 模型列表缓存：跨面板共享，同一 CLI 只拉取一次 */
         private val sharedModelCache = mutableMapOf<String, List<String>>()
+
+        /** 返回已加载的模型副本，不触发 CLI 或网络请求。 */
+        internal fun cachedModels(provider: String): List<String> = sharedModelCache[provider]?.toList().orEmpty()
     }
 }

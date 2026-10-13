@@ -1,5 +1,6 @@
 package com.fs.terminal
 
+import com.fs.i18n.SubMsgBundle.message as tr
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.components.JBCheckBox
@@ -31,17 +32,19 @@ class CliToolsPanel {
         val inner = JPanel()
         inner.layout = BoxLayout(inner, BoxLayout.Y_AXIS)
 
-        inner.add(JBLabel("侧边栏图标显示:"))
+        inner.add(JBLabel(tr("cli.tools.icons")))
         for (tool in CliTool.values()) {
-            val cb = JBCheckBox("显示 ${tool.id} 图标", settings.isShowIcon(tool))
+            val cb = JBCheckBox(tr("cli.tools.show", tool.id), settings.isShowIcon(tool))
             showIconBoxes[tool] = cb
             inner.add(cb)
         }
 
         inner.add(Box.createVerticalStrut(JBUI.scale(10)))
-        inner.add(JBLabel("高权限启动:"))
-        for (tool in CliTool.values()) {
-            val cb = JBCheckBox(tool.highPermissionDesc, settings.isHighPermission(tool))
+        inner.add(JBLabel(tr("cli.tools.permissions")))
+        for (tool in CliTool.values().filter { it.supportsHighPermission }) {
+            val cb = JBCheckBox(tr("cli.tools.permission", tool.id), settings.isHighPermission(tool)).apply {
+                toolTipText = tool.highPermissionCommand
+            }
             highPermissionBoxes[tool] = cb
             inner.add(cb)
         }

@@ -5,19 +5,27 @@ import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.util.xmlb.XmlSerializerUtil
+import com.fs.i18n.SubMsgBundle
 
 /**
  * AI Commit 配置（应用级持久化，文件 ai-commit.xml）。
  *
- * 支持选择 Claude、Codex、Cursor、OpenCode、Gemini(agy)、Grok 或 OMP CLI；
+ * 支持选择 Claude、Codex、Cursor、OpenCode、Gemini(agy)、Grok、OMP 或 Pi CLI；
  * 模型为单一输入，随所选 CLI 生效，可在末尾追加思考等级（如 "claude-opus-4-5 high"）。
- * 认证复用各 CLI 自身的登录凭证，不存储 API Key。
+ * CLI 模式复用本机登录，API 模式使用独立的提供商配置。
  */
 @State(
     name = "AiCommitSettings",
     storages = [Storage("ai-commit.xml")]
 )
 class AiCommitSettings : PersistentStateComponent<AiCommitSettings> {
+
+    var mode: String = MODE_CLI
+    var interfaceLanguage: String = LANGUAGE_ZH
+    var apiConfigs: MutableList<ApiProviderConfig> = mutableListOf()
+    var activeApiConfigId: String = ""
+    var cliPath: String = ""
+    var externalEditor: String = "code"
 
     /** 激活的 CLI */
     var activeProvider: String = PROVIDER_CLAUDE
@@ -46,10 +54,31 @@ class AiCommitSettings : PersistentStateComponent<AiCommitSettings> {
 
     fun modelFor(sdk: SdkDefinition): String = model.trim().ifBlank { sdk.defaultModel }
 
+    fun activeApiConfig(): ApiProviderConfig? = apiConfigs.firstOrNull { it.id == activeApiConfigId }
+
+    /** 创建一次生成任务使用的独立配置快照，避免提交过程中切换设置影响在途请求。 */
+    fun generationSnapshot(): AiCommitSettings = AiCommitSettings().also { snapshot ->
+        snapshot.mode = mode
+        snapshot.interfaceLanguage = interfaceLanguage
+        snapshot.apiConfigs = apiConfigs.map { it.deepCopy() }.toMutableList()
+        snapshot.activeApiConfigId = activeApiConfigId
+        snapshot.cliPath = cliPath
+        snapshot.externalEditor = externalEditor
+        snapshot.activeProvider = activeProvider
+        snapshot.model = model
+        snapshot.customPrompt = customPrompt
+        snapshot.includeRecentCommits = includeRecentCommits
+        snapshot.maxDiffLength = maxDiffLength
+        snapshot.outputLanguage = outputLanguage
+    }
+
     override fun getState(): AiCommitSettings = this
 
     override fun loadState(state: AiCommitSettings) {
         XmlSerializerUtil.copyBean(state, this)
+        apiConfigs = apiConfigs.map { config ->
+            config.deepCopy().apply { normalizeModels() }
+        }.toMutableList()
         // 旧版本按 CLI 分字段存模型：迁移当前激活 CLI 的模型到单一字段后清空旧值
         if (model.isBlank()) {
             model = when (activeProvider.lowercase()) {
@@ -65,9 +94,16 @@ class AiCommitSettings : PersistentStateComponent<AiCommitSettings> {
         if (outputLanguage != LANGUAGE_ZH && outputLanguage != LANGUAGE_EN) {
             outputLanguage = LANGUAGE_ZH
         }
+        if (interfaceLanguage != LANGUAGE_ZH && interfaceLanguage != LANGUAGE_EN) interfaceLanguage = LANGUAGE_ZH
+        if (mode != MODE_CLI && mode != MODE_API) mode = MODE_CLI
+        if (activeApiConfig() == null) activeApiConfigId = apiConfigs.firstOrNull()?.id.orEmpty()
+        maxDiffLength = maxDiffLength.coerceAtLeast(MIN_MAX_DIFF_LENGTH)
+        SubMsgBundle.language = interfaceLanguage
     }
 
     companion object {
+        const val MODE_CLI = "CLI"
+        const val MODE_API = "API"
         const val PROVIDER_CLAUDE = "claude"
         const val PROVIDER_CODEX = "codex"
         const val PROVIDER_CURSOR = "cursor"
@@ -75,6 +111,7 @@ class AiCommitSettings : PersistentStateComponent<AiCommitSettings> {
         const val PROVIDER_GEMINI = "gemini"
         const val PROVIDER_GROK = "grok"
         const val PROVIDER_OMP = "omp"
+        const val PROVIDER_PI = "pi"
 
         const val LANGUAGE_ZH = "zh"
         const val LANGUAGE_EN = "en"

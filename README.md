@@ -1,135 +1,47 @@
-# Generate Commit Message - AI-Powered Git Commit Message Generator
+# Generate Commit Message
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/hwglhj/generateCommitMessage)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/hwglhj/generateCommitMessage)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[简体中文](README_CN.md) | English
 
-> Based on [cli-tools-idea](https://github.com/l-ning/cli-tools-idea), an IntelliJ IDEA plugin that generates commit messages with the AI CLIs you already have installed, optimized for Windows.
+IntelliJ IDEA plugin based on [l-ning/cli-tools-idea](https://github.com/l-ning/cli-tools-idea), maintained by hwglhj.
 
-[English](README.md) | [简体中文](README_CN.md)
+## Features
 
-## ✨ Features
+- Generate a Git commit message from the changes selected in the commit panel, including untracked files.
+- CLI mode: Claude, Codex, Cursor Agent, OpenCode, Gemini/agy, Grok, OMP and Pi. Reuse the CLI's authentication, select or type a model, and choose supported thinking levels. Pi (`pi`) and OMP (`omp`) are separate CLI tools and reuse their own configured providers and credentials.
+- API mode: multiple OpenAI-compatible, Anthropic and custom OpenAI-compatible configurations. Each site can keep multiple models; the commit-panel menu switches by site > model. Add, edit, delete and activate configurations; fetch models or enter one manually; test a connection. API keys use IntelliJ PasswordSafe and are excluded from plugin XML settings.
+- Export and import all API sites as versioned JSON. API keys are omitted by default; exporting them requires an explicit checkbox and confirmation. Same-ID imports overwrite site fields, while imports without a key preserve the local PasswordSafe key.
+- Additional prompt, read-only built-in prompt, recent commit style reference (last 10), configurable diff limit (default 5000, minimum 500).
+- Chinese/English interface and independent commit message language. Saving the interface language refreshes the settings page.
+- Eight CLI terminal entries with individual visibility controls and high permission switches where the CLI supports one.
+- Open the current file at its cursor position in VS Code, Cursor, Antigravity or Windsurf.
+- Windows executable and npm launcher detection, npm/nvm PATH support, cancellation and process timeouts.
+- A quick model switcher beside the commit-panel lightning action. Opening the API menu refreshes every site's full model list in the background; the active site is marked with a check and its current model. Generation failures open the same list so you can switch and retry.
 
-- 🤖 **AI-Powered**: Generate commit messages by analyzing the changes you selected in the commit panel
-- 🎯 **Multi-CLI Support**: Claude, Codex, Cursor Agent, OpenCode, Gemini (agy), Grok, OMP
-- 🔐 **No API Key**: Reuses each CLI's own login; nothing sensitive is stored in the IDE
-- 🎨 **Custom Prompts**: Append project-specific commit conventions to the built-in prompt
-- 📊 **Recent Commits Reference**: Optionally feed the last 10 commit messages to the AI to keep the style consistent
-- 📏 **Diff Length Control**: Configurable maximum diff length sent to the AI
-- 🌐 **Output Language**: Chinese (default) or English commit messages
-- 🖥️ **CLI Tools Sidebar**: One tool window per CLI with optional high-permission startup
-- 🔗 **External Editor Jump**: Open the current file in VS Code / Cursor / Antigravity
-- 💻 **Windows Optimized**: `.exe`/`.cmd`/`.bat` detection, npm and nvm-windows paths
+AI Inline and REST API Search are not part of this plugin.
 
-## 🚀 Quick Start
+## Setup
 
-### 1. Install a CLI Tool
+Requires IntelliJ IDEA 2022.2 or later and the bundled Terminal plugin. The build targets platform 222 and Java 17; newer IDE versions still require installation testing.
 
-Install and log in to at least one supported CLI, for example:
+Install the ZIP from `build/distributions/` using Settings > Plugins > Install Plugin from Disk, then restart the IDE. Configure Settings > Tools > Generate Commit Message, which contains **AI Commit** and **CLI Tools** tabs.
 
-```bash
-# Claude CLI (recommended)
-npm install -g @anthropic-ai/claude-code
-claude /login
+CLI mode requires a separately installed and authenticated CLI. The optional executable path applies to the selected AI Commit CLI. Model candidates may include a public catalog or built-in fallback; the Test button verifies the selected model against the configured CLI. API mode does not require a local CLI. Custom APIs must implement the OpenAI chat-completions protocol; this is not universal provider support. Providers without `/models` can use a manually entered model. The API settings toolbar includes Windows-compatible JSON import/export controls.
 
-# Codex CLI
-npm install -g @openai/codex
-codex login
+High permission options pass each supported CLI's own approval flags. Pi inherits the current process permissions and therefore has no separate high permission switch. These options do not launch Windows as Administrator. API keys follow the IDE's PasswordSafe storage policy, including memory-only mode when configured in the IDE.
+
+## Build On Windows
+
+Use JDK 17 and Gradle 7.4.2 already installed on this machine:
+
+```powershell
+& 'D:\gradle-7.4.2\bin\gradle.bat' test --no-daemon
+& 'D:\gradle-7.4.2\bin\gradle.bat' buildPlugin --no-daemon
 ```
 
-### 2. Install the Plugin
+The artifact is `build/distributions/generateCommitMessage-1.0.0.zip`. No Git write operations are needed for a local build. Test temporary files use `tmp/tests/`.
 
-- Build it: `./gradlew buildPlugin` produces `build/distributions/generateCommitMessage-1.0.0.zip`
-- Open IntelliJ IDEA → `Settings` → `Plugins` → `⚙️` → `Install Plugin from Disk...`
-- Select the `.zip` file and restart the IDE
+See [installation and acceptance](INSTALL_GUIDE.md), [feature map](FEATURE_SUMMARY.md), [verification record](FINAL_SUMMARY.md), and [document index](DOCS_INDEX.md). Build and automated test results do not establish live provider availability or compatibility with every CLI version.
 
-### 3. Configure
+## License
 
-Open `Settings` → `Tools` → `Generate Commit Message`.
-
-**AI Commit tab**
-
-1. Choose the CLI and model (the model list is fetched from the CLI; you can also type any model name)
-2. Pick a thinking level where the CLI supports it
-3. Click `Test` to verify the CLI is installed and logged in
-4. Optionally add an extra prompt (appended after the built-in prompt, which you can inspect with `View built-in prompt`)
-5. Enhanced options:
-   - ☑ Include recent commits as a style reference (last 10)
-   - Max diff length in characters (default 5000, minimum 500)
-   - Output language: Chinese or English
-
-**CLI Tools tab**
-
-- Toggle the sidebar icon for each CLI tool
-- Enable high-permission startup flags per tool (for example `claude --permission-mode bypassPermissions`)
-
-### 4. Use
-
-1. Make some code changes
-2. Open the VCS commit panel and select the files to include
-3. Click the ⚡ **Generate Commit Message** button next to the message box
-4. Review or edit the generated message, then commit
-
-The generation runs as a cancellable background task; cancelling or failing restores whatever you had typed.
-
-## 🛠️ Supported CLIs
-
-| CLI | ID | Default Model | Thinking Levels |
-|-----|----|--------------:|-----------------|
-| **Claude CLI** | `claude` | claude-sonnet-4-6 | low, medium, high, xhigh, max |
-| **Codex CLI** | `codex` | gpt-5.5 | minimal, low, medium, high, xhigh |
-| **Cursor Agent** | `cursor` | auto | - |
-| **OpenCode** | `opencode` | (configured) | - |
-| **Gemini (agy)** | `gemini` | Gemini 3.1 Pro (High) | (in model name) |
-| **Grok** | `grok` | grok-4.1 | - |
-| **OMP** | `omp` | (configured) | off, minimal, low, medium, high, xhigh, max, auto |
-
-## 📋 System Requirements
-
-- **IntelliJ IDEA**: 2021.1 or later (Community / Ultimate), the Terminal plugin must be enabled
-- **Java**: 17 for building
-- **OS**: Windows 10/11, macOS, Linux
-
-## 🔧 Advanced Configuration
-
-### Custom Prompts
-
-Add project-specific requirements in the "Additional prompt" field, for example:
-
-```
-Always use the scope "core".
-Reference the Jira ticket from the branch name in the footer.
-```
-
-### Where settings are stored
-
-- AI Commit: `ai-commit.xml` in the IDE options directory
-- CLI Tools: `fs-cli-tools.xml` in the IDE options directory
-
-## 🧑‍💻 Development
-
-```bash
-./gradlew compileKotlin        # compile
-./gradlew test                 # unit tests
-./gradlew buildPlugin          # build/distributions/generateCommitMessage-1.0.0.zip
-./gradlew runIde               # start a sandbox IDE with the plugin
-```
-
-Design notes live in `docs/superpowers/specs/` and the implementation plan in `docs/superpowers/plans/`.
-
-## 🤝 Contributing
-
-Contributions are welcome. Please open a Pull Request.
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Based on [cli-tools-idea](https://github.com/l-ning/cli-tools-idea) by [@l-ning](https://github.com/l-ning)
-- Inspired by the AI CLI tools from Anthropic, OpenAI, and others
-
----
-
-⭐ If you find this project useful, please consider giving it a star!
+See [LICENSE](LICENSE) and the original project's attribution.

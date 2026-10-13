@@ -14,8 +14,6 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
     // 测试用的 JUnit4 由 gradle-intellij-plugin 提供(IDEA 发行版自带 lib/junit4.jar),无需外部依赖
 }
 
@@ -30,6 +28,11 @@ intellij {
 }
 
 tasks {
+    test {
+        val tempDirectory = layout.projectDirectory.dir("tmp/tests").asFile
+        systemProperty("java.io.tmpdir", tempDirectory.absolutePath)
+        doFirst { tempDirectory.mkdirs() }
+    }
     initializeIntelliJPlugin {
         selfUpdateCheck.set(false)
     }
@@ -42,7 +45,7 @@ tasks {
     }
 
     patchPluginXml {
-        sinceBuild.set("211")
+        sinceBuild.set("222")
         untilBuild.set("")
     }
 

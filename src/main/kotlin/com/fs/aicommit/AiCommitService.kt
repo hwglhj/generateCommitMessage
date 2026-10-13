@@ -11,6 +11,8 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
+import com.fs.i18n.SubMsgBundle
+import com.intellij.util.diff.Diff
 
 /**
  * AI 生成 Commit Message 服务。
@@ -20,9 +22,11 @@ import java.util.concurrent.TimeUnit
  * SDK 调用使用所选 CLI 的非交互模式，认证复用 CLI 自身的登录凭证，
  * 无需在插件中配置 API Key。
  */
-class AiCommitService(private val project: Project?) {
-
-    private val settings = AiCommitSettings.getInstance()
+class AiCommitService(
+    private val project: Project?,
+    private val settings: AiCommitSettings = AiCommitSettings.getInstance(),
+    private val apiClient: ApiClient = ApiClient()
+) {
 
     /**
      * 同步生成 commit message（在后台任务中调用）。
@@ -34,39 +38,48 @@ class AiCommitService(private val project: Project?) {
         unversionedFiles: Collection<FilePath> = emptyList(),
         indicator: ProgressIndicator? = null,
     ): String {
-        val sdk = settings.activeSdk()
-        val model = settings.modelFor(sdk)
-
-        indicator?.text = "检测 ${sdk.displayName}..."
-        val status = SdkManager.detect(sdk, null)
-        if (!status.installed || status.path == null) {
-            throw RuntimeException("未检测到 ${sdk.displayName}（${sdk.binName} 命令），请先安装并登录")
-        }
-        indicator?.checkCanceled()
-
-        indicator?.text = "收集变更 diff（${changes.size + unversionedFiles.size} 个文件）..."
+        indicator?.text = SubMsgBundle.message("commit.collecting", changes.size + unversionedFiles.size)
         val diff = generateDiff(changes, unversionedFiles)
         if (diff.isBlank()) {
-            throw RuntimeException("未找到可用的代码变更")
+            throw RuntimeException(SubMsgBundle.message("error.diff.empty"))
         }
         indicator?.checkCanceled()
 
         val recentCommits = if (settings.includeRecentCommits) {
-            indicator?.text = "读取近期提交（风格参考）..."
+            indicator?.text = SubMsgBundle.message("commit.recent")
             collectRecentCommits()
         } else {
             ""
         }
-        val prompt = AiCommitPrompts.buildFullPrompt(diff, recentCommits, settings.customPrompt, settings.outputLanguage)
+        return generateFromDiff(diff, recentCommits, indicator)
+    }
+
+    internal fun generateFromDiff(diff: String, recentCommits: String = "", indicator: ProgressIndicator? = null): String {
+        if (diff.isBlank()) throw IllegalArgumentException(SubMsgBundle.message("error.diff.empty"))
+        val limitedDiff = diff.take(settings.maxDiffLength.coerceAtLeast(AiCommitSettings.MIN_MAX_DIFF_LENGTH))
+        val prompt = AiCommitPrompts.buildFullPrompt(limitedDiff, if (settings.includeRecentCommits) recentCommits else "", settings.customPrompt, settings.outputLanguage)
         indicator?.checkCanceled()
 
-        indicator?.text = "调用 ${sdk.displayName}（$model）生成中..."
-        val raw = runSdk(sdk, status.path, prompt, model, indicator)
+        val raw = if (settings.mode == AiCommitSettings.MODE_API) {
+            val config = settings.activeApiConfig() ?: throw ApiException(SubMsgBundle.message("api.select.config"))
+            indicator?.text = SubMsgBundle.message("api.generating", config.name, config.model)
+            apiClient.complete(ApiCredentials.resolve(config), prompt) { indicator?.checkCanceled() }
+        } else {
+            val sdk = settings.activeSdk()
+            val model = settings.modelFor(sdk)
+            indicator?.text = SubMsgBundle.message("cli.detecting", sdk.displayName)
+            val status = SdkManager.detect(sdk, settings.cliPath)
+            if (!status.installed || status.path == null) {
+                throw RuntimeException(SubMsgBundle.message("message.cli.notfound", sdk.binName))
+            }
+            indicator?.text = SubMsgBundle.message("api.generating", sdk.displayName, model)
+            runSdk(sdk, status.path, prompt, model, indicator)
+        }
 
-        indicator?.text = "清洗输出..."
+        indicator?.text = SubMsgBundle.message("commit.cleaning")
         val message = cleanupCommitMessage(raw)
         if (message.isBlank()) {
-            throw RuntimeException("AI 返回了空的 commit message")
+            throw RuntimeException(SubMsgBundle.message("commit.empty"))
         }
         return message
     }
@@ -90,9 +103,11 @@ class AiCommitService(private val project: Project?) {
                         appendNewFileContent(diff, after.content)
                     }
                     type == Change.Type.DELETED && before != null -> {
-                        diff.append("--- 文件已删除\n")
+                        diff.append("--- deleted\n")
+                        before.content?.let { diff.append(it.take(maxDiffLength)).append('\n') }
                     }
-                    type == Change.Type.MODIFICATION && before != null && after != null -> {
+                    before != null && after != null -> {
+                        if (before.file.path != after.file.path) diff.append("--- ").append(before.file.path).append('\n')
                         val b = before.content
                         val a = after.content
                         if (b != null && a != null) {
@@ -101,9 +116,10 @@ class AiCommitService(private val project: Project?) {
                     }
                 }
                 if (diff.length > maxDiffLength) {
-                    diff.append("\n... (后续变更因长度限制未包含；请仅根据以上内容直接生成提交信息)")
-                    return diff.toString()
+                    return diff.take(maxDiffLength).toString()
                 }
+            } catch (e: ProcessCanceledException) {
+                throw e
             } catch (e: Exception) {
                 LOG.warn("Failed to get diff for change: ${e.message}")
             }
@@ -114,8 +130,7 @@ class AiCommitService(private val project: Project?) {
                 diff.append("\n=== NEW(未跟踪): ").append(filePath.path).append(" ===\n")
                 appendNewFileContent(diff, readUnversionedContent(filePath))
                 if (diff.length > maxDiffLength) {
-                    diff.append("\n... (后续变更因长度限制未包含；请仅根据以上内容直接生成提交信息)")
-                    return diff.toString()
+                    return diff.take(maxDiffLength).toString()
                 }
             } catch (e: Exception) {
                 LOG.warn("Failed to read unversioned file ${filePath.path}: ${e.message}")
@@ -126,48 +141,36 @@ class AiCommitService(private val project: Project?) {
 
     private fun appendNewFileContent(diff: StringBuilder, content: String?) {
         if (content == null) return
-        if (content.length <= 500) {
-            diff.append("+++ ").append(content).append("\n")
-        } else {
-            diff.append("+++ [文件过大，仅显示前500字符]\n")
-            diff.append(content, 0, 500).append("\n")
-        }
+        val limit = settings.maxDiffLength.coerceAtLeast(AiCommitSettings.MIN_MAX_DIFF_LENGTH)
+        diff.append("+++ ").append(content.take(limit)).append('\n')
     }
 
     private fun readUnversionedContent(filePath: FilePath): String? {
         val file = filePath.ioFile
         if (!file.isFile || !file.canRead()) return null
-        // 只取前 4KB 判断/展示，避免大文件与二进制文件拖慢生成
-        val bytes = file.inputStream().use { it.readNBytes(4096) }
+        val limit = settings.maxDiffLength.coerceIn(AiCommitSettings.MIN_MAX_DIFF_LENGTH, 1_000_000)
+        val bytes = file.inputStream().use { it.readNBytes(limit) }
         if (bytes.any { it == 0.toByte() }) return "[二进制文件]"
         return String(bytes, StandardCharsets.UTF_8)
     }
 
-    private fun generateSimpleDiff(before: String, after: String): String {
-        val beforeLines = before.split("\n")
-        val afterLines = after.split("\n")
+    internal fun generateSimpleDiff(before: String, after: String): String {
+        val beforeLines = Diff.splitLines(before)
+        val afterLines = Diff.splitLines(after)
         val diff = StringBuilder()
-        val maxLines = maxOf(beforeLines.size, afterLines.size)
-        var shownLines = 0
-        val maxShownLines = 30
-        var i = 0
-        while (i < maxLines && shownLines < maxShownLines) {
-            val beforeLine = beforeLines.getOrElse(i) { "" }
-            val afterLine = afterLines.getOrElse(i) { "" }
-            if (beforeLine != afterLine) {
-                if (beforeLine.isNotEmpty()) {
-                    diff.append("- ").append(beforeLine).append("\n")
-                    shownLines++
-                }
-                if (afterLine.isNotEmpty() && shownLines < maxShownLines) {
-                    diff.append("+ ").append(afterLine).append("\n")
-                    shownLines++
-                }
+        val limit = settings.maxDiffLength.coerceAtLeast(AiCommitSettings.MIN_MAX_DIFF_LENGTH)
+        var change = Diff.buildChanges(beforeLines, afterLines)
+        while (change != null) {
+            diff.append("@@ -${change.line0 + 1},${change.deleted} +${change.line1 + 1},${change.inserted} @@\n")
+            for (line in change.line0 until change.line0 + change.deleted) {
+                diff.append("- ").append(beforeLines[line]).append('\n')
+                if (diff.length >= limit) return diff.take(limit).toString()
             }
-            i++
-        }
-        if (maxLines > maxShownLines) {
-            diff.append("... (更多变更已省略)\n")
+            for (line in change.line1 until change.line1 + change.inserted) {
+                diff.append("+ ").append(afterLines[line]).append('\n')
+                if (diff.length >= limit) return diff.take(limit).toString()
+            }
+            change = change.link
         }
         return diff.toString()
     }
@@ -179,17 +182,9 @@ class AiCommitService(private val project: Project?) {
     private fun collectRecentCommits(): String {
         val basePath = project?.basePath ?: return ""
         return try {
-            val pb = ProcessBuilder("git", "log", "-${AiCommitSettings.RECENT_COMMITS_COUNT}", "--pretty=format:%B")
-            pb.directory(File(basePath))
-            pb.environment()["PATH"] = SdkManager.pathEnv()
-            pb.redirectErrorStream(false)
-            val process = pb.start()
-            val output = process.inputStream.bufferedReader().readText()
-            if (!process.waitFor(15, TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                return ""
-            }
-            if (process.exitValue() == 0) output.trim().take(2000) else ""
+            val result = CliProcess.run(listOf("git", "log", "-${AiCommitSettings.RECENT_COMMITS_COUNT}", "--pretty=format:%B"),
+                directory = File(basePath), timeoutMillis = 15000)
+            if (result.exitCode == 0) result.stdout.trim().take(2000) else ""
         } catch (e: Exception) {
             LOG.debug("collect recent commits failed: ${e.message}")
             ""
@@ -217,6 +212,7 @@ class AiCommitService(private val project: Project?) {
             SdkDefinition.GEMINI_SDK -> runGemini(cliPath, prompt, model, indicator)
             SdkDefinition.GROK_SDK -> runGrok(cliPath, prompt, model, indicator)
             SdkDefinition.OMP_SDK -> runOmp(cliPath, prompt, model, thinking, indicator)
+            SdkDefinition.PI_SDK -> runPi(cliPath, prompt, model, thinking, indicator)
         }
     }
 
@@ -250,8 +246,8 @@ class AiCommitService(private val project: Project?) {
                 command.add("-c")
                 command.add("model_reasoning_effort=$thinking")
             }
-            command.add(prompt)
-            val stdout = execute(command, stdin = null, indicator = indicator)
+            command.add("-")
+            val stdout = execute(command, stdin = prompt, indicator = indicator)
             val lastMessage = outFile.readText(StandardCharsets.UTF_8).trim()
             return lastMessage.ifBlank { stdout }
         } finally {
@@ -316,6 +312,10 @@ class AiCommitService(private val project: Project?) {
         return execute(command, stdin = null, indicator = indicator)
     }
 
+    /** Pi print mode：不保存会话、不调用工具，也不加载项目级上下文文件。 */
+    private fun runPi(cliPath: String, prompt: String, model: String, thinking: String, indicator: ProgressIndicator?): String =
+        execute(buildPiCommand(cliPath, prompt, model, thinking), stdin = null, indicator = indicator)
+
     /**
      * 执行 CLI 进程。等待方式为 200ms 轮询而非一次性死等：
      * - 用户在进度条上点取消 -> 立即杀掉子进程并抛 [ProcessCanceledException]
@@ -324,58 +324,31 @@ class AiCommitService(private val project: Project?) {
      */
     private fun execute(command: List<String>, stdin: String?, indicator: ProgressIndicator? = null): String {
         LOG.info("Run SDK: ${command.first()} ${command.getOrNull(1) ?: ""}")
-        val pb = ProcessBuilder(command)
-        project?.basePath?.let { pb.directory(File(it)) }
-        pb.environment()["PATH"] = File(command.first()).parent + ":" + SdkManager.pathEnv()
-        val process = pb.start()
-
-        if (stdin != null) {
-            process.outputStream.use { it.write(stdin.toByteArray(StandardCharsets.UTF_8)) }
-        } else {
-            process.outputStream.close()
-        }
-
-        val stdout = StringBuilder()
-        val stderr = StringBuilder()
-        val outReader = Thread { process.inputStream.bufferedReader().forEachLine { stdout.appendLine(it) } }
-        val errReader = Thread { process.errorStream.bufferedReader().forEachLine { stderr.appendLine(it) } }
-        outReader.start(); errReader.start()
-
-        val startAt = System.currentTimeMillis()
-        while (true) {
-            if (process.waitFor(200, TimeUnit.MILLISECONDS)) break
-            val elapsedSec = (System.currentTimeMillis() - startAt) / 1000
-            if (indicator != null && indicator.isCanceled) {
-                process.destroyForcibly()
-                throw ProcessCanceledException()
-            }
-            indicator?.text2 = "已用时 ${elapsedSec}s（上限 ${TIMEOUT_SECONDS}s，可点击取消）"
-            if (elapsedSec >= TIMEOUT_SECONDS) {
-                process.destroyForcibly()
-                throw RuntimeException("SDK 调用超时（${TIMEOUT_SECONDS}秒）")
-            }
-        }
-        outReader.join(3000); errReader.join(3000)
-
-        if (process.exitValue() != 0) {
-            val err = (stderr.toString().ifBlank { stdout.toString() }).trim().take(500)
+        val result = CliProcess.run(command, stdin, project?.basePath?.let { File(it) },
+            timeoutMillis = TIMEOUT_SECONDS * 1000L,
+            checkCanceled = { indicator?.checkCanceled() },
+            onTick = { indicator?.text2 = SubMsgBundle.message("cli.elapsed", it, TIMEOUT_SECONDS) })
+        if (result.exitCode != 0) {
+            val err = (result.stderr.ifBlank { result.stdout }).trim().take(500)
             val hint = if (err.contains("login", true) || err.contains("auth", true) ||
                 err.contains("credential", true) || err.contains("API key", true)
-            ) "\n提示：请先在终端完成所选 CLI 的登录或认证配置" else ""
-            throw RuntimeException("SDK 调用失败（退出码 ${process.exitValue()}）: $err$hint")
+            ) "\n" + SubMsgBundle.message("cli.auth.hint") else ""
+            throw RuntimeException(SubMsgBundle.message("cli.failed", result.exitCode, err + hint))
         }
-        return stdout.toString().trim()
+        return result.stdout.trim()
     }
 
     /** 供设置面板"测试"使用，成功返回 null，失败返回错误信息 */
-    fun testSdk(sdk: SdkDefinition, model: String): String? {
+    fun testSdk(sdk: SdkDefinition, model: String, cliPath: String? = null, indicator: ProgressIndicator? = null): String? {
         return try {
-            val status = SdkManager.detect(sdk, null)
+            val status = SdkManager.detect(sdk, cliPath)
             if (!status.installed || status.path == null) {
-                return "未检测到 ${sdk.displayName}（${sdk.binName} 命令），请先安装并登录"
+                return SubMsgBundle.message("message.cli.notfound", sdk.binName)
             }
-            val reply = runSdk(sdk, status.path, "请只回复：OK", model)
-            if (reply.isBlank()) "调用成功但返回内容为空" else null
+            val reply = runSdk(sdk, status.path, "Reply with OK only.", model, indicator)
+            if (reply.isBlank()) SubMsgBundle.message("commit.empty") else null
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             e.message ?: e.javaClass.simpleName
         }
@@ -489,5 +462,15 @@ class AiCommitService(private val project: Project?) {
         private const val COMMIT_TAG_START = "<commit>"
         private const val COMMIT_TAG_END = "</commit>"
         private const val TIMEOUT_SECONDS = 180L
+
+        internal fun buildPiCommand(cliPath: String, prompt: String, model: String, thinking: String): List<String> {
+            val command = mutableListOf(
+                cliPath, "--print", "--no-session", "--no-tools", "--no-context-files", "--no-approve"
+            )
+            if (model.isNotBlank()) command.addAll(listOf("--model", model))
+            if (thinking.isNotBlank()) command.addAll(listOf("--thinking", thinking))
+            command.add(prompt)
+            return command
+        }
     }
 }

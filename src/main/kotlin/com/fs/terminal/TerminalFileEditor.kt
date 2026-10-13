@@ -1,6 +1,8 @@
 package com.fs.terminal
 
 import com.intellij.openapi.fileEditor.FileEditor
+import com.fs.aicommit.SdkManager
+import com.fs.i18n.SubMsgBundle.message as tr
 import com.intellij.openapi.fileEditor.FileEditorPolicy
 import com.intellij.openapi.fileEditor.FileEditorProvider
 import com.intellij.openapi.fileEditor.FileEditorState
@@ -30,7 +32,7 @@ class TerminalVirtualFile(val tool: CliTool, name: String = tool.id) :
 /** 仅用于让标签页显示对应 CLI 工具的图标 */
 class TerminalFileType(private val tool: CliTool) : FileType {
     override fun getName(): String = "FS Terminal ${tool.id}"
-    override fun getDescription(): String = "${tool.id} terminal tab"
+    override fun getDescription(): String = tr("terminal.description", tool.id)
     override fun getDefaultExtension(): String = ""
     override fun getIcon(): Icon = tool.icon
     override fun isBinary(): Boolean = true
@@ -56,7 +58,13 @@ class TerminalFileEditorProvider : FileEditorProvider, DumbAware {
 class TerminalFileEditor(project: Project, private val file: TerminalVirtualFile) :
     UserDataHolderBase(), FileEditor {
 
-    private val widget = LocalTerminalDirectRunner(project)
+    private val widget = object : LocalTerminalDirectRunner(project) {
+        override fun getInitialCommand(environment: MutableMap<String, String>): List<String> {
+            val inherited = environment.entries.firstOrNull { it.key.equals("PATH", true) }?.value.orEmpty()
+            environment["PATH"] = SdkManager.mergePath(inherited.split(java.io.File.pathSeparator), SdkManager.pathEnv())
+            return super.getInitialCommand(environment)
+        }
+    }
         .createTerminalWidget(this, project.basePath, true)
         .also {
             val cmd = file.tool.command(CliToolsSettings.getInstance().isHighPermission(file.tool))

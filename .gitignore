@@ -24,6 +24,8 @@ Desktop.ini
 *.log
 
 # Temporary files
+tmp/
+.playwright-mcp/
 *.tmp
 *.bak
 *.swp

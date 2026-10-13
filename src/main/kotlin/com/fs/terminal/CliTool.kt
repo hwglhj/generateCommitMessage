@@ -11,7 +11,8 @@ enum class CliTool(
     val id: String,            // ToolWindow id / 标签页名
     val baseCommand: String,
     val highPermissionCommand: String,
-    val highPermissionDesc: String
+    val highPermissionDesc: String,
+    val supportsHighPermission: Boolean = true
 ) {
     CLAUDE(
         "Claude", "claude",
@@ -47,13 +48,18 @@ enum class CliTool(
         "OMP", "omp",
         "omp --auto-approve",
         "Oh My Pi 高权限启动 (--auto-approve)"
+    ),
+    PI(
+        "Pi", "pi", "pi",
+        "Pi 使用当前进程权限启动",
+        supportsHighPermission = false
     );
 
     /** 与 plugin.xml 中 ToolWindow 图标一致,用于终端标签页 */
     val icon: Icon by lazy { IconLoader.getIcon("/icons/${id.lowercase()}.svg", CliTool::class.java) }
 
     fun command(highPermission: Boolean): String =
-        if (highPermission) highPermissionCommand else baseCommand
+        if (supportsHighPermission && highPermission) highPermissionCommand else baseCommand
 
     companion object {
         fun byToolWindowId(id: String): CliTool? = values().firstOrNull { it.id == id }

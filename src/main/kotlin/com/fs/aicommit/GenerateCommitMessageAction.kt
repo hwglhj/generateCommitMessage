@@ -1,14 +1,15 @@
 package com.fs.aicommit
 
+import com.fs.i18n.SubMsgBundle
+import com.fs.i18n.SubMsgBundle.message as tr
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.PlatformCoreDataKeys
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.CheckinProjectPanel
@@ -38,43 +39,46 @@ class GenerateCommitMessageAction : AnAction(), DumbAware {
         val project = e.project ?: return
         val commitPanel = getCommitMessagePanel(e)
         if (commitPanel == null) {
-            notify(project, "无法访问提交信息输入框", NotificationType.WARNING)
+            notify(project, tr("commit.panel.unavailable"), NotificationType.WARNING)
             return
         }
-        val selection = getUserSelectedChanges(e, project)
+        val selection = getUserSelectedChanges(e)
         if (selection.isEmpty()) {
-            notify(project, "没有选中任何变更", NotificationType.WARNING)
+            notify(project, tr("commit.selection.empty"), NotificationType.WARNING)
             return
         }
 
-        // 保存原有内容，失败/取消时恢复
-        val originalMessage = readCommitMessage(e, commitPanel) ?: ""
-        updateCommitMessage(project, commitPanel, "正在生成 commit message...")
-
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "AI 生成 commit message", true) {
-            var result: String? = null
-
-            override fun run(indicator: ProgressIndicator) {
-                indicator.isIndeterminate = true
-                result = AiCommitService(project).generate(selection.changes, selection.unversionedFiles, indicator)
-            }
-
-            override fun onSuccess() {
-                val message = result ?: return
-                updateCommitMessage(project, commitPanel, message)
-            }
-
-            override fun onCancel() {
-                updateCommitMessage(project, commitPanel, originalMessage)
-                notify(project, "已取消生成", NotificationType.INFORMATION)
-            }
-
-            override fun onThrowable(error: Throwable) {
-                LOG.warn("Failed to generate commit message", error)
-                updateCommitMessage(project, commitPanel, originalMessage)
-                notify(project, "生成失败: ${error.message ?: error.javaClass.simpleName}", NotificationType.ERROR)
-            }
-        })
+        // Detect edits made while generation is running before replacing the field.
+        val originalMessage = readCommitMessage(e, commitPanel)
+        val anchor = e.inputEvent?.component ?: e.getData(PlatformCoreDataKeys.CONTEXT_COMPONENT)
+        val token = CommitGenerationTask.gate.acquire() ?: return
+        try {
+            val snapshot = AiCommitSettings.getInstance().generationSnapshot()
+            ProgressManager.getInstance().run(CommitGenerationTask(
+                project, token,
+                generate = { indicator ->
+                    indicator.isIndeterminate = true
+                    AiCommitService(project, snapshot).generate(selection.changes, selection.unversionedFiles, indicator)
+                },
+                generated = { message ->
+                    if (originalMessage != null && readCommitMessage(e, commitPanel) != originalMessage) {
+                        notify(project, tr("commit.result.changed", com.intellij.openapi.util.text.StringUtil.escapeXmlEntities(message)), NotificationType.INFORMATION)
+                    } else {
+                        updateCommitMessage(project, commitPanel, message)
+                    }
+                },
+                canceled = { notify(project, tr("commit.canceled"), NotificationType.INFORMATION) },
+                failed = { error ->
+                    LOG.warn("Failed to generate commit message", error)
+                    notify(project, tr("error.generation.failed", com.intellij.openapi.util.text.StringUtil.escapeXmlEntities(error.message ?: error.javaClass.simpleName)), NotificationType.ERROR)
+                },
+                showModelSwitcher = { QuickModelAction.showPopup(project, anchor, afterFailure = true) },
+                canUpdateUi = { !project.isDisposed },
+            ))
+        } catch (error: Throwable) {
+            token.close()
+            throw error
+        }
     }
 
     /**
@@ -125,31 +129,26 @@ class GenerateCommitMessageAction : AnAction(), DumbAware {
         fun isEmpty(): Boolean = changes.isEmpty() && unversionedFiles.isEmpty()
     }
 
-    private fun getUserSelectedChanges(e: AnActionEvent, project: Project): SelectedChanges {
+    private fun getUserSelectedChanges(e: AnActionEvent): SelectedChanges {
         // 1. 新版提交面板：反射获取勾选的变更与勾选的未版本化文件
         val workflowHandler = e.getData(VcsDataKeys.COMMIT_WORKFLOW_HANDLER)
         if (workflowHandler != null) {
-            val changes = getIncludedViaReflection(workflowHandler, "getIncludedChanges")
-                ?.filterIsInstance<Change>().orEmpty()
-            val unversioned = getIncludedViaReflection(workflowHandler, "getIncludedUnversionedFiles")
-                ?.mapNotNull { toFilePath(it) }.orEmpty()
-            if (changes.isNotEmpty() || unversioned.isNotEmpty()) return SelectedChanges(changes, unversioned)
+            selectionFrom(getIncludedViaReflection(workflowHandler, "getIncludedChanges"),
+                getIncludedViaReflection(workflowHandler, "getIncludedUnversionedFiles"))?.let { return it }
         }
 
         // 2. 旧版提交对话框
         val messageControl = e.getData(VcsDataKeys.COMMIT_MESSAGE_CONTROL)
         if (messageControl is CheckinProjectPanel) {
             val changes = messageControl.selectedChanges
-            if (!changes.isNullOrEmpty()) return SelectedChanges(changes.toList(), emptyList())
+            return SelectedChanges(changes.toList(), emptyList())
         }
 
         // 3. DataContext 中的变更
         val changesArray = e.getData(VcsDataKeys.CHANGES)
-        if (!changesArray.isNullOrEmpty()) return SelectedChanges(changesArray.toList(), emptyList())
+        if (changesArray != null) return SelectedChanges(changesArray.toList(), emptyList())
 
-        // 4. 兜底：所有本地变更 + 所有未版本化文件
-        val clm = ChangeListManager.getInstance(project)
-        return SelectedChanges(clm.allChanges.toList(), clm.unversionedFilesPaths.toList())
+        return SelectedChanges(emptyList(), emptyList())
     }
 
     /** 反射调用 workflowHandler.getUi() 上的取值方法（getIncludedChanges / getIncludedUnversionedFiles） */
@@ -163,17 +162,12 @@ class GenerateCommitMessageAction : AnAction(), DumbAware {
         }
     }
 
-    /** getIncludedUnversionedFiles 的元素类型随 IDEA 版本不同：新版是 FilePath，旧版是 VirtualFile */
-    private fun toFilePath(item: Any?): FilePath? = when (item) {
-        is FilePath -> item
-        is VirtualFile -> VcsUtil.getFilePath(item)
-        else -> null
-    }
-
     override fun update(e: AnActionEvent) {
-        e.presentation.text = "Generate Commit Message"
-        e.presentation.description = "使用 AI 根据选中的变更生成 commit message"
-        e.presentation.isEnabledAndVisible = e.project != null
+        SubMsgBundle.language = AiCommitSettings.getInstance().interfaceLanguage
+        e.presentation.text = tr("action.generate.commit")
+        e.presentation.description = tr("action.generate.commit.desc")
+        e.presentation.isVisible = e.project != null
+        e.presentation.isEnabled = e.project != null && !CommitGenerationTask.gate.isRunning
     }
 
     private fun notify(project: Project, content: String, type: NotificationType) {
@@ -184,6 +178,17 @@ class GenerateCommitMessageAction : AnAction(), DumbAware {
     }
 
     companion object {
+        internal fun selectionFrom(changes: Collection<*>?, unversioned: Collection<*>?): SelectedChanges? {
+            if (changes == null && unversioned == null) return null
+            val files = unversioned.orEmpty().mapNotNull {
+                when (it) {
+                    is FilePath -> it
+                    is VirtualFile -> VcsUtil.getFilePath(it)
+                    else -> null
+                }
+            }
+            return SelectedChanges(changes.orEmpty().filterIsInstance<Change>(), files)
+        }
         private val LOG = Logger.getInstance(GenerateCommitMessageAction::class.java)
     }
 }
