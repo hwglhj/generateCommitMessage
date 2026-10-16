@@ -13,6 +13,7 @@ data class ApiProviderConfig(
     @get:Transient var apiKey: String = "",
     var model: String = "",
     var models: MutableList<String> = mutableListOf(),
+    var modelsFetchedAt: Long = 0L,
     var reasoningCompatible: Boolean = false
 ) {
     override fun toString(): String = name

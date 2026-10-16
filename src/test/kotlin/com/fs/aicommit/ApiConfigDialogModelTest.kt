@@ -1,17 +1,18 @@
 package com.fs.aicommit
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApiConfigDialogModelTest {
     @Test
-    fun `merged models retain current fetched and saved values in stable order`() {
+    fun `current model is placed before cached models`() {
         assertEquals(
-            listOf("current", "fetched-a", "saved-a"),
-            ApiConfigDialog.mergeModels(
+            listOf("current", "cached-a"),
+            ApiConfigDialog.mergeCurrentWithCache(
                 current = "current",
-                fetched = listOf("fetched-a", "current", ""),
-                saved = listOf("saved-a", "fetched-a")
+                cached = listOf("cached-a", "current", "")
             )
         )
     }
@@ -20,11 +21,32 @@ class ApiConfigDialogModelTest {
     fun `merged models trim values and drop blanks`() {
         assertEquals(
             listOf("manual", "remote"),
-            ApiConfigDialog.mergeModels(
+            ApiConfigDialog.mergeCurrentWithCache(
                 current = " manual ",
-                fetched = listOf(" remote ", " "),
-                saved = emptyList()
+                cached = listOf(" remote ", " ")
             )
         )
+    }
+
+    @Test
+    fun `cached models belong only to the provider and endpoint that produced them`() {
+        assertTrue(ApiConfigDialog.cacheMatches(
+            provider = " openai ",
+            baseUrl = " https://one.example/v1 ",
+            cachedProvider = "openai",
+            cachedBaseUrl = "https://one.example/v1",
+        ))
+        assertFalse(ApiConfigDialog.cacheMatches(
+            provider = "anthropic",
+            baseUrl = "https://one.example/v1",
+            cachedProvider = "openai",
+            cachedBaseUrl = "https://one.example/v1",
+        ))
+        assertFalse(ApiConfigDialog.cacheMatches(
+            provider = "openai",
+            baseUrl = "https://two.example/v1",
+            cachedProvider = "openai",
+            cachedBaseUrl = "https://one.example/v1",
+        ))
     }
 }

@@ -4,21 +4,26 @@ import com.fs.i18n.SubMsgBundle
 import com.fs.i18n.SubMsgBundle.message as tr
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.PlatformCoreDataKeys
+import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.actionSystem.ToggleAction
-import com.intellij.openapi.actionSystem.impl.SimpleDataContext
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
-import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.wm.WindowManager
 import java.awt.Component
-import java.util.concurrent.atomic.AtomicBoolean
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.concurrent.ConcurrentHashMap
+import javax.swing.JPanel
 import javax.swing.SwingConstants
 
 /** 提交工具栏中的快速模型选择入口。 */
@@ -56,52 +61,6 @@ class QuickModelAction : AnAction(), DumbAware {
             val active: Boolean,
             val choices: List<Choice>,
         )
-
-        internal data class ApiRefreshResult(
-            val modelsByConfigId: Map<String, List<String>>,
-            val failed: Int,
-        )
-
-        internal fun refreshApiModels(
-            settings: AiCommitSettings,
-            fetch: (ApiProviderConfig) -> List<String>
-        ): Int {
-            if (settings.mode != AiCommitSettings.MODE_API) return 0
-            val result = loadApiModels(settings.apiConfigs, fetch)
-            applyApiModels(settings, result)
-            return result.failed
-        }
-
-        internal fun loadApiModels(
-            configs: List<ApiProviderConfig>,
-            fetch: (ApiProviderConfig) -> List<String>
-        ): ApiRefreshResult {
-            var failed = 0
-            val modelsByConfigId = linkedMapOf<String, List<String>>()
-            configs.forEach { config ->
-                try {
-                    val fetched = fetch(config.deepCopy())
-                    modelsByConfigId[config.id] = sequenceOf(config.model)
-                        .plus(fetched.asSequence())
-                        .plus(config.models.asSequence())
-                        .map(String::trim)
-                        .filter(String::isNotBlank)
-                        .distinct()
-                        .toList()
-                } catch (error: ProcessCanceledException) {
-                    throw error
-                } catch (_: Exception) {
-                    failed++
-                }
-            }
-            return ApiRefreshResult(modelsByConfigId, failed)
-        }
-
-        internal fun applyApiModels(settings: AiCommitSettings, result: ApiRefreshResult) {
-            settings.apiConfigs.forEach { config ->
-                result.modelsByConfigId[config.id]?.let { config.models = it.toMutableList() }
-            }
-        }
 
         internal fun apiSites(settings: AiCommitSettings): List<ApiSiteChoices> =
             settings.apiConfigs.map { config ->
@@ -174,50 +133,35 @@ class QuickModelAction : AnAction(), DumbAware {
             return true
         }
 
-        internal fun showPopup(project: Project, anchor: Component?, afterFailure: Boolean = false, refreshApi: Boolean = true) {
+        internal fun showPopup(project: Project, anchor: Component?, afterFailure: Boolean = false) {
             if (project.isDisposed || CommitGenerationTask.gate.isRunning) return
             val settings = AiCommitSettings.getInstance()
             SubMsgBundle.language = settings.interfaceLanguage
-            if (settings.mode == AiCommitSettings.MODE_API && refreshApi) {
-                if (!apiRefreshRunning.compareAndSet(false, true)) return
-                ProgressManager.getInstance().run(object : Task.Backgroundable(project, tr("message.model.loading"), true) {
-                    private var result = ApiRefreshResult(emptyMap(), 0)
-
-                    override fun run(indicator: ProgressIndicator) {
-                        val snapshots = settings.apiConfigs.map { ApiCredentials.resolve(it.deepCopy()) }
-                        result = loadApiModels(snapshots) { config ->
-                            indicator.text2 = config.name.ifBlank { config.baseUrl }
-                            ApiClient().fetchModels(ApiCredentials.resolve(config)) { indicator.checkCanceled() }
-                        }
-                    }
-
-                    override fun onSuccess() {
-                        apiRefreshRunning.set(false)
-                        applyApiModels(settings, result)
-                        showPopup(project, anchor, afterFailure, refreshApi = false)
-                    }
-
-                    override fun onCancel() {
-                        apiRefreshRunning.set(false)
-                        showPopup(project, anchor, afterFailure, refreshApi = false)
-                    }
-
-                    override fun onThrowable(error: Throwable) {
-                        apiRefreshRunning.set(false)
-                        showPopup(project, anchor, afterFailure, refreshApi = false)
-                    }
-                })
-                return
-            }
             val group = DefaultActionGroup()
+            var popup: QuickModelActionPopup? = null
             val hasChoices = if (settings.mode == AiCommitSettings.MODE_API) {
                 val sites = apiSites(settings)
                 sites.forEach { site ->
-                    val siteGroup = DefaultActionGroup(siteMenuLabel(site), true)
-                    if (site.choices.isEmpty()) {
-                        siteGroup.add(disabledAction(tr("action.quick.model.empty.site")))
-                    } else {
-                        site.choices.forEach { choice -> siteGroup.add(modelToggle(settings, project, choice)) }
+                    lateinit var siteGroup: LivePopupActionGroup
+                    siteGroup = LivePopupActionGroup(siteMenuLabel(site)) {
+                        val currentSite = apiSites(settings).firstOrNull { it.configId == site.configId }
+                        buildList<AnAction> {
+                            add(ApiSiteRefreshAction(site.configId, project) {
+                                val handle = popup?.openSubmenuHandle() ?: QuickModelPopupRefreshHandle.NONE
+                                refreshApiSite(project, site.configId, siteGroup, handle)
+                            })
+                            add(Separator.getInstance())
+                            if (currentSite == null || currentSite.choices.isEmpty()) {
+                                add(disabledAction(tr("action.quick.model.empty.site")))
+                            } else {
+                                currentSite.choices.forEach { choice -> add(modelToggle(settings, project, choice)) }
+                            }
+                            val config = settings.apiConfigs.firstOrNull { it.id == site.configId }
+                            if (config != null) {
+                                add(Separator.getInstance())
+                                add(disabledAction(siteStatus(config)))
+                            }
+                        }.toTypedArray()
                     }
                     group.add(siteGroup)
                 }
@@ -241,13 +185,80 @@ class QuickModelAction : AnAction(), DumbAware {
                 }
             })
             val title = if (afterFailure) tr("action.quick.model.failure.title") else tr("action.quick.model.title")
-            val popup = JBPopupFactory.getInstance().createActionGroupPopup(
-                title, group, SimpleDataContext.getProjectContext(project),
-                JBPopupFactory.ActionSelectionAid.SPEEDSEARCH, true,
-            )
+            val contextComponent = anchor ?: WindowManager.getInstance().getFrame(project)?.rootPane ?: JPanel()
+            popup = QuickModelActionPopup(title, group, quickModelPopupDataContext(project, contextComponent))
             popup.setAdText(tr("action.quick.model.hint"), SwingConstants.LEFT)
             if (anchor?.isShowing == true) popup.showUnderneathOf(anchor)
             else popup.showCenteredInCurrentWindow(project)
+        }
+
+        private fun refreshApiSite(
+            project: Project,
+            configId: String,
+            siteGroup: ActionGroup,
+            popupHandle: QuickModelPopupRefreshHandle,
+        ) {
+            if (project.isDisposed || !beginApiRefresh(configId)) return
+            val settings = AiCommitSettings.getInstance()
+            val source = settings.apiConfigs.firstOrNull { it.id == configId }
+            if (source == null) {
+                endApiRefresh(configId)
+                return
+            }
+            val snapshot = source.deepCopy()
+            val label = source.name.ifBlank { source.baseUrl }
+            apiRefreshMessages[configId] = tr("message.model.refreshing.site", label)
+            ProgressManager.getInstance().run(object : Task.Backgroundable(
+                project,
+                tr("message.model.refreshing.site", label),
+                true,
+            ) {
+                private var update: ApiModelCacheUpdate? = null
+
+                override fun run(indicator: ProgressIndicator) {
+                    val resolved = ApiCredentials.resolve(snapshot)
+                    val fetched = ApiClient().fetchModels(resolved) { indicator.checkCanceled() }
+                    update = ApiModelCache.createUpdate(resolved, fetched, System.currentTimeMillis())
+                }
+
+                override fun onSuccess() {
+                    val candidate = update
+                    when {
+                        candidate == null -> apiRefreshMessages[configId] = tr("message.model.retained")
+                        ApiModelCache.apply(settings.apiConfigs, candidate) -> apiRefreshMessages.remove(configId)
+                        else -> apiRefreshMessages[configId] = tr("message.model.discarded")
+                    }
+                }
+
+                override fun onCancel() {
+                    apiRefreshMessages[configId] = tr("message.model.retained")
+                }
+
+                override fun onThrowable(error: Throwable) {
+                    LOG.warn("Failed to refresh API models for $configId: ${error.message}")
+                    apiRefreshMessages[configId] = tr("message.model.failed.retained")
+                }
+
+                override fun onFinished() {
+                    endApiRefresh(configId)
+                    if (!project.isDisposed) popupHandle.replace(siteGroup)
+                }
+            })
+        }
+
+        private fun cacheStatus(config: ApiProviderConfig): String {
+            val count = config.availableModels().size
+            if (count == 0) return tr("action.quick.model.cache.empty")
+            if (config.modelsFetchedAt <= 0L) return tr("action.quick.model.cache.unknown", count)
+            val time = CACHE_TIME_FORMAT.format(
+                Instant.ofEpochMilli(config.modelsFetchedAt).atZone(ZoneId.systemDefault())
+            )
+            return tr("action.quick.model.cache", count, time)
+        }
+
+        private fun siteStatus(config: ApiProviderConfig): String {
+            val cache = cacheStatus(config)
+            return apiRefreshMessages[config.id]?.let { "$it · $cache" } ?: cache
         }
 
         private fun disabledAction(label: String): AnAction = object : AnAction(label), DumbAware {
@@ -277,7 +288,18 @@ class QuickModelAction : AnAction(), DumbAware {
                 }
             }
 
-        private val apiRefreshRunning = AtomicBoolean(false)
+        internal fun beginApiRefresh(configId: String): Boolean = apiRefreshRunning.add(configId)
+
+        internal fun endApiRefresh(configId: String) {
+            apiRefreshRunning.remove(configId)
+        }
+
+        internal fun isApiRefreshRunning(configId: String): Boolean = configId in apiRefreshRunning
+
+        private val apiRefreshRunning = ConcurrentHashMap.newKeySet<String>()
+        private val apiRefreshMessages = ConcurrentHashMap<String, String>()
+        private val CACHE_TIME_FORMAT = DateTimeFormatter.ofPattern("MM-dd HH:mm")
+        private val LOG = Logger.getInstance(QuickModelAction::class.java)
 
     }
 }

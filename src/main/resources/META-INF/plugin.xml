@@ -20,6 +20,13 @@ Based on l-ning/cli-tools-idea. Requires IntelliJ IDEA 2022.2 or later with the 
 ]]></description>
 
     <change-notes><![CDATA[
+        <h3>1.0.1</h3>
+        <ul>
+            <li>API 快速切换改为读取持久化模型缓存，打开菜单时不再等待全部站点联网</li>
+            <li>支持在快速菜单和 API 设置页中单独刷新一个站点，成功后原地更新当前模型列表</li>
+            <li>刷新失败、取消或配置已变化时保留旧缓存，并记录缓存数量与上次成功时间</li>
+            <li>修复刷新期间切换模型时保留旧模型，以及 IntelliJ IDEA 2026.1 中快速菜单类加载失败的问题</li>
+        </ul>
         <h3>1.0.0</h3>
         <ul>
             <li>首次发布：AI Commit 生成 + CLI Tools 侧边栏</li>
@@ -30,7 +37,7 @@ Based on l-ning/cli-tools-idea. Requires IntelliJ IDEA 2022.2 or later with the 
         </ul>
     ]]></change-notes>
 
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>

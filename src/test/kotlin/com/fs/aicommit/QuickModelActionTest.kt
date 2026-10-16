@@ -1,8 +1,8 @@
 package com.fs.aicommit
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QuickModelActionTest {
@@ -65,27 +65,56 @@ class QuickModelActionTest {
     }
 
     @Test
-    fun `refresh API models requests every site and keeps existing models when one site fails`() {
+    fun `API quick choices use the saved cache without a refresh step`() {
         val settings = AiCommitSettings().apply {
             mode = AiCommitSettings.MODE_API
             apiConfigs = mutableListOf(
-                ApiProviderConfig(id = "one", name = "One", model = "m1", models = mutableListOf("m1")),
-                ApiProviderConfig(id = "two", name = "Two", model = "x1", models = mutableListOf("x1", "old"))
+                ApiProviderConfig(
+                    id = "one",
+                    name = "One",
+                    model = "m1",
+                    models = mutableListOf("m1", "cached"),
+                )
             )
             activeApiConfigId = "one"
         }
-        val requested = mutableListOf<String>()
 
-        val failed = QuickModelAction.refreshApiModels(settings) { config ->
-            requested += config.id
-            if (config.id == "two") throw ApiException("offline")
-            listOf("m1", "m2", "m3")
+        val site = QuickModelAction.apiSites(settings).single()
+
+        assertEquals(listOf("m1", "cached"), site.choices.map { it.model })
+        assertEquals(listOf("m1", "cached"), settings.apiConfigs.single().models)
+    }
+
+    @Test
+    fun `refresh gate blocks only duplicate requests for the same site`() {
+        assertTrue(QuickModelAction.beginApiRefresh("one"))
+        try {
+            assertFalse(QuickModelAction.beginApiRefresh("one"))
+            assertTrue(QuickModelAction.beginApiRefresh("two"))
+            try {
+                assertTrue(QuickModelAction.isApiRefreshRunning("one"))
+                assertTrue(QuickModelAction.isApiRefreshRunning("two"))
+            } finally {
+                QuickModelAction.endApiRefresh("two")
+            }
+        } finally {
+            QuickModelAction.endApiRefresh("one")
+        }
+        assertFalse(QuickModelAction.isApiRefreshRunning("one"))
+        assertFalse(QuickModelAction.isApiRefreshRunning("two"))
+    }
+
+    @Test
+    fun `open site popup replaces its visible actions from the latest cache`() {
+        val visibleActions = mutableListOf("refresh", "old-model")
+        var synced = false
+
+        QuickModelPopupItems.replaceValues(visibleActions, listOf("refresh", "new-a", "new-b")) {
+            synced = true
         }
 
-        assertEquals(listOf("one", "two"), requested)
-        assertEquals(1, failed)
-        assertEquals(listOf("m1", "m2", "m3"), settings.apiConfigs[0].models)
-        assertEquals(listOf("x1", "old"), settings.apiConfigs[1].models)
+        assertEquals(listOf("refresh", "new-a", "new-b"), visibleActions)
+        assertTrue(synced)
     }
 
     @Test

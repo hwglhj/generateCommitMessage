@@ -45,7 +45,17 @@ class SubMsgBundleTest {
             "aicommit.api.import.success",
             "aicommit.api.export.success",
             "aicommit.api.transfer.error",
-            "action.quick.model.empty.site"
+            "aicommit.api.refresh.models",
+            "action.quick.model.empty.site",
+            "action.quick.model.refresh.site",
+            "action.quick.model.refreshing",
+            "action.quick.model.cache",
+            "action.quick.model.cache.unknown",
+            "action.quick.model.cache.empty",
+            "message.model.refreshing.site",
+            "message.model.refreshed.site",
+            "message.model.failed.retained",
+            "message.model.discarded",
         )
 
         assertEquals(required, required.filter(english::containsKey).toSet())

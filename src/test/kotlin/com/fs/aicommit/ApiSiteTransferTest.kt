@@ -10,13 +10,21 @@ class ApiSiteTransferTest {
     @Test
     fun `export omits apiKey when secrets are disabled`() {
         val json = ApiSiteTransfer.encode(
-            listOf(ApiProviderConfig(id = "one", name = "One", apiKey = "secret", model = "m", models = mutableListOf("m"))),
+            listOf(ApiProviderConfig(
+                id = "one",
+                name = "One",
+                apiKey = "secret",
+                model = "m",
+                models = mutableListOf("m"),
+                modelsFetchedAt = 123L,
+            )),
             activeId = "one",
             includeApiKeys = false
         )
 
         val site = JsonParser.parseString(json).asJsonObject.getAsJsonArray("configs")[0].asJsonObject
         assertFalse(site.has("apiKey"))
+        assertFalse(site.has("modelsFetchedAt"))
     }
 
     @Test
@@ -85,6 +93,7 @@ class ApiSiteTransferTest {
         val document = ApiSiteTransfer.decode(json)
 
         assertEquals(listOf("m", "n"), document.configs.first().models)
+        assertEquals(0L, document.configs.first().modelsFetchedAt)
     }
 
     private fun assertDecodeFails(json: String) {

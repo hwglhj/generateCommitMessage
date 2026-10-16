@@ -109,7 +109,13 @@ class AiCommitSettingsTest {
         val settings = AiCommitSettings().apply {
             mode = AiCommitSettings.MODE_API
             apiConfigs = mutableListOf(
-                ApiProviderConfig(id = "one", name = "One", model = "original", models = mutableListOf("original"))
+                ApiProviderConfig(
+                    id = "one",
+                    name = "One",
+                    model = "original",
+                    models = mutableListOf("original"),
+                    modelsFetchedAt = 123L,
+                )
             )
             activeApiConfigId = "one"
         }
@@ -118,5 +124,6 @@ class AiCommitSettingsTest {
         settings.apiConfigs.single().models.add("changed")
 
         assertEquals(listOf("original"), snapshot.apiConfigs.single().models)
+        assertEquals(123L, snapshot.apiConfigs.single().modelsFetchedAt)
     }
 }

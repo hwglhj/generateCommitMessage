@@ -18,6 +18,9 @@ import java.awt.Dimension
 import java.awt.FlowLayout
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
 
@@ -30,7 +33,12 @@ class ApiModePanel {
     private val table = JTable(tableModel).apply { setSelectionMode(ListSelectionModel.SINGLE_SELECTION) }
     private val activeCombo = JComboBox<String>()
     private val status = JBLabel(" ")
+    private val refreshModelsButton = JButton(tr("aicommit.api.refresh.models"), AllIcons.Actions.Refresh).apply {
+        isEnabled = false
+        toolTipText = tr("tooltip.refresh.models")
+    }
     private var refreshing = false
+    private var modelRefreshRunning = false
 
     init {
         val actions = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0))
@@ -47,12 +55,17 @@ class ApiModePanel {
             addActionListener { selected()?.let { this@ApiModePanel.model.remove(it.id); refresh() } }
         })
         actions.add(JButton(tr("aicommit.button.test")).apply { addActionListener { testConnection() } })
+        refreshModelsButton.addActionListener { refreshSelectedModels() }
+        actions.add(refreshModelsButton)
         actions.add(JSeparator(SwingConstants.VERTICAL).apply { preferredSize = Dimension(1, 24) })
         actions.add(JButton(tr("aicommit.api.import")).apply { addActionListener { importSites() } })
         actions.add(JButton(tr("aicommit.api.export")).apply { addActionListener { exportSites() } })
         table.addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mouseClicked(event: java.awt.event.MouseEvent) { if (event.clickCount == 2) selected()?.let { edit(it) } }
         })
+        table.selectionModel.addListSelectionListener {
+            if (!it.valueIsAdjusting) updateRefreshModelsButton()
+        }
         activeCombo.addActionListener {
             if (!refreshing) model.activeId = model.configs.getOrNull(activeCombo.selectedIndex)?.id.orEmpty()
         }
@@ -83,6 +96,75 @@ class ApiModePanel {
             table.setRowSelectionInterval(row, row)
         }
         refreshing = false
+        updateRefreshModelsButton()
+    }
+
+    private fun updateRefreshModelsButton() {
+        refreshModelsButton.isEnabled = selected() != null && !modelRefreshRunning
+    }
+
+    private fun refreshSelectedModels() {
+        if (modelRefreshRunning) return
+        val source = selected()?.deepCopy() ?: return
+        val snapshot = source
+        val label = source.name.ifBlank { source.baseUrl }
+        modelRefreshRunning = true
+        updateRefreshModelsButton()
+        status.text = tr("message.model.refreshing.site", label)
+        status.toolTipText = null
+        ProgressManager.getInstance().run(object : Task.Backgroundable(
+            null,
+            tr("message.model.refreshing.site", label),
+            true,
+        ) {
+            private var update: ApiModelCacheUpdate? = null
+
+            override fun run(indicator: ProgressIndicator) {
+                val resolved = ApiCredentials.resolve(snapshot)
+                val fetched = ApiClient().fetchModels(resolved) { indicator.checkCanceled() }
+                update = ApiModelCache.createUpdate(resolved, fetched, System.currentTimeMillis())
+            }
+
+            override fun onSuccess() {
+                val candidate = update
+                status.text = when {
+                    candidate == null -> tr("message.model.retained")
+                    model.applyModelCache(candidate) -> {
+                        refresh()
+                        status.toolTipText = null
+                        val time = CACHE_TIME_FORMAT.format(
+                            Instant.ofEpochMilli(candidate.fetchedAt).atZone(ZoneId.systemDefault())
+                        )
+                        val cachedCount = model.configs.firstOrNull { it.id == source.id }
+                            ?.availableModels()
+                            ?.size
+                            ?: candidate.remoteModels.size
+                        tr("message.model.refreshed.site", label, cachedCount, time)
+                    }
+                    else -> tr("message.model.discarded")
+                }
+            }
+
+            override fun onCancel() {
+                status.text = tr("message.model.retained")
+                status.toolTipText = null
+            }
+
+            override fun onThrowable(error: Throwable) {
+                status.text = tr("message.model.failed.retained")
+                status.toolTipText = error.message
+                Messages.showErrorDialog(
+                    panel,
+                    tr("message.model.failed", error.message.orEmpty()),
+                    tr("message.error"),
+                )
+            }
+
+            override fun onFinished() {
+                modelRefreshRunning = false
+                updateRefreshModelsButton()
+            }
+        })
     }
 
     private fun testConnection() {
@@ -156,4 +238,8 @@ class ApiModePanel {
     fun apply(settings: AiCommitSettings) = model.apply(settings)
     fun reset(settings: AiCommitSettings) { model.reset(settings); refresh() }
     fun hasActiveConfig() = model.configs.any { it.id == model.activeId }
+
+    companion object {
+        private val CACHE_TIME_FORMAT = DateTimeFormatter.ofPattern("MM-dd HH:mm")
+    }
 }

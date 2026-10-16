@@ -21,10 +21,13 @@ class ApiConfigDialog(private val original: ApiProviderConfig = ApiProviderConfi
     private val providerBox = ComboBox(arrayOf("OpenAI Compatible", "Anthropic", tr("apiconfig.provider.custom")))
     private val urlField = JBTextField(original.baseUrl, 40)
     private val keyField = JPasswordField(original.apiKey, 32)
-    private var fetchedModels: List<String> = emptyList()
+    private var cachedModels: List<String> = original.availableModels()
+    private var modelsFetchedAt: Long = original.modelsFetchedAt
+    private var cachedProvider: String = original.provider.trim()
+    private var cachedBaseUrl: String = original.baseUrl.trim()
     private val modelBox = ComboBox<String>().apply {
         isEditable = true
-        model = DefaultComboBoxModel(original.availableModels().toTypedArray())
+        model = DefaultComboBoxModel(cachedModels.toTypedArray())
         editor.item = original.model
     }
     private val reasoningBox = JBCheckBox(tr("apiconfig.reasoning"), original.reasoningCompatible)
@@ -49,11 +52,15 @@ class ApiConfigDialog(private val original: ApiProviderConfig = ApiProviderConfi
 
     fun config(): ApiProviderConfig {
         val currentModel = modelBox.editor.item?.toString().orEmpty().trim()
+        val provider = providerIds[providerBox.selectedIndex]
+        val baseUrl = urlField.text.trim()
+        val keepCache = cacheMatches(provider, baseUrl, cachedProvider, cachedBaseUrl)
         return original.deepCopy().copy(
-            name = nameField.text.trim(), provider = providerIds[providerBox.selectedIndex],
-            baseUrl = urlField.text.trim(), apiKey = String(keyField.password).trim(),
+            name = nameField.text.trim(), provider = provider,
+            baseUrl = baseUrl, apiKey = String(keyField.password).trim(),
             model = currentModel,
-            models = mergeModels(currentModel, fetchedModels, original.models).toMutableList(),
+            models = mergeCurrentWithCache(currentModel, if (keepCache) cachedModels else emptyList()).toMutableList(),
+            modelsFetchedAt = if (keepCache) modelsFetchedAt else 0L,
             reasoningCompatible = reasoningBox.isSelected
         )
     }
@@ -83,30 +90,44 @@ class ApiConfigDialog(private val original: ApiProviderConfig = ApiProviderConfi
             }
             override fun onSuccess() {
                 val selected = modelBox.editor.item
-                fetchedModels = models
+                val update = ApiModelCache.createUpdate(snapshot, models, System.currentTimeMillis())
+                if (update == null) {
+                    status.text = tr("message.model.retained")
+                    return
+                }
+                cachedModels = mergeCurrentWithCache(selected?.toString().orEmpty(), update.remoteModels)
+                modelsFetchedAt = update.fetchedAt
+                cachedProvider = snapshot.provider.trim()
+                cachedBaseUrl = snapshot.baseUrl.trim()
                 modelBox.model = DefaultComboBoxModel(
-                    mergeModels(selected?.toString().orEmpty(), fetchedModels, original.models).toTypedArray()
+                    mergeCurrentWithCache(selected?.toString().orEmpty(), cachedModels).toTypedArray()
                 )
                 modelBox.editor.item = selected
-                status.text = tr("message.model.loaded", models.size)
+                status.text = tr("message.model.loaded", cachedModels.size)
             }
             override fun onThrowable(error: Throwable) {
-                status.text = tr("message.error")
+                status.text = tr("message.model.failed.retained")
                 setErrorText(tr("message.model.failed", error.message.orEmpty()))
             }
-            override fun onCancel() { status.text = " " }
+            override fun onCancel() { status.text = tr("message.model.retained") }
             override fun onFinished() { fetchButton.isEnabled = true }
         })
     }
 
     companion object {
-        internal fun mergeModels(current: String, fetched: List<String>, saved: List<String>): List<String> =
+        internal fun mergeCurrentWithCache(current: String, cached: List<String>): List<String> =
             sequenceOf(current)
-                .plus(fetched.asSequence())
-                .plus(saved.asSequence())
+                .plus(cached.asSequence())
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .distinct()
                 .toList()
+
+        internal fun cacheMatches(
+            provider: String,
+            baseUrl: String,
+            cachedProvider: String,
+            cachedBaseUrl: String,
+        ): Boolean = provider.trim() == cachedProvider.trim() && baseUrl.trim() == cachedBaseUrl.trim()
     }
 }

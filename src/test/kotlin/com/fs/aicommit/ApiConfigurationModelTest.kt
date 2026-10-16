@@ -107,6 +107,47 @@ class ApiConfigurationModelTest {
         assertEquals(listOf("one"), settings.apiConfigs.single().models)
     }
 
+    @Test
+    fun `model cache update changes only its matching working configuration`() {
+        val model = ApiConfigurationModel(MemoryCredentials())
+        model.put(ApiProviderConfig(
+            id = "one",
+            name = "One",
+            baseUrl = "https://one.example/v1",
+            model = "m1",
+        ))
+        model.put(ApiProviderConfig(
+            id = "two",
+            name = "Two",
+            baseUrl = "https://two.example/v1",
+            model = "x1",
+        ))
+        val update = ApiModelCache.createUpdate(model.configs.first(), listOf("m2"), 20L)!!
+
+        assertTrue(model.applyModelCache(update))
+        assertEquals(listOf("m1", "m2"), model.configs.first().models)
+        assertEquals(20L, model.configs.first().modelsFetchedAt)
+        assertEquals(listOf("x1"), model.configs.last().availableModels())
+        assertEquals(0L, model.configs.last().modelsFetchedAt)
+    }
+
+    @Test
+    fun `model cache update is discarded after working endpoint changes`() {
+        val model = ApiConfigurationModel(MemoryCredentials())
+        model.put(ApiProviderConfig(
+            id = "one",
+            name = "One",
+            baseUrl = "https://old.example/v1",
+            model = "m1",
+        ))
+        val update = ApiModelCache.createUpdate(model.configs.single(), listOf("m2"), 20L)!!
+        model.configs.single().baseUrl = "https://new.example/v1"
+
+        assertFalse(model.applyModelCache(update))
+        assertEquals(listOf("m1"), model.configs.single().availableModels())
+        assertEquals(0L, model.configs.single().modelsFetchedAt)
+    }
+
     private fun importJson(name: String, apiKey: String?): String {
         val key = apiKey?.let { ",\"apiKey\":\"$it\"" }.orEmpty()
         return """

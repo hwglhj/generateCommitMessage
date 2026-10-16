@@ -6,7 +6,7 @@ IntelliJ IDEA 2022.2 或更新版本，启用内置 Terminal 插件。源码构�
 
 ## 从磁盘安装
 
-1. 构建 `buildPlugin`，取得 `build/distributions/generateCommitMessage-1.0.0.zip`。
+1. 构建 `buildPlugin`，取得 `build/distributions/generateCommitMessage-1.0.1.zip`。
 2. IDEA 设置 > 插件 > 从磁盘安装插件，选择 ZIP 并重启。
 3. 打开设置 > 工具 > Generate Commit Message，确认显示 AI Commit、CLI Tools 两个标签页。
 
@@ -22,11 +22,11 @@ IntelliJ IDEA 2022.2 或更新版本，启用内置 Terminal 插件。源码构�
 
 选择 API 模式并添加配置：名称、协议、Base URL、API Key、模型。OpenAI Compatible 使用 `/chat/completions`，Anthropic 使用 `/messages`；Base URL 可包含 `/v1` 等网关前缀。也支持输入完整端点，生成时不会重复拼接端点后缀。
 
-模型可以手填或获取。推理兼容选项在 OpenAI 协议下改用 `max_completion_tokens` 并省略 temperature。选择激活配置，点击测试，保存设置。API Key 使用 IDE PasswordSafe，配置 XML 不包含密钥；取消设置不会保存尚未应用的密钥编辑。
+模型可以手填或获取。每个站点保存上一次成功获取的模型缓存；快速菜单默认读取缓存，设置页和快速菜单都可只刷新当前站点。刷新失败、取消、返回空列表或站点端点已变化时保留旧缓存。推理兼容选项在 OpenAI 协议下改用 `max_completion_tokens` 并省略 temperature。选择激活配置，点击测试，保存设置。API Key 使用 IDE PasswordSafe，配置 XML 不包含密钥；取消设置不会保存尚未应用的密钥编辑。
 
 ## 安装后的检查
 
-提交信息输入框上方，闪电按钮左侧的列表图标是“快速切换模型”。API 模式列出已保存的「配置名 — 模型」；CLI 模式列出当前模型及缓存/内置候选，保留思考等级。选中项有勾，修改会同步到插件设置，对同一 IDEA 中的所有项目生效。
+提交信息输入框上方，闪电按钮左侧的列表图标是“快速切换模型”。API 模式立即列出已缓存的「配置名 — 模型」，站点子菜单可单独重新获取模型，完成后弹窗保持打开并原地更新；CLI 模式列出当前模型及缓存/内置候选，保留思考等级。选中项有勾，修改会同步到插件设置，对同一 IDEA 中的所有项目生效。
 
 生成失败会保留提交框内容并自动弹出列表，选择后再次点击闪电重试；取消任务不会弹出。生成期间暂时禁用模型切换和重复生成。列表末尾的“管理模型配置”可直接打开插件设置；CLI 候选的刷新或新模型的手动输入仍在设置页完成。
 

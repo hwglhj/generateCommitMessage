@@ -9,7 +9,7 @@
 | API 多站点、多模型、导入导出及密钥 | `ApiConfigurationModel`、`ApiModePanel`、`ApiConfigDialog`、`ApiSiteTransfer`、`ApiSiteExportDialog`、`ApiCredentials` |
 | Windows 检测、npm 启动、PATH、进程超时、Pi 官方安装目录 | `SdkManager`、`CliProcess` |
 | 模型搜索与思考等级、设置保存重置 | `ProviderModelPanel`、`ProviderModelSelection`、`AiCommitPanel` |
-| 提交面板按站点分组快速切换模型、打开菜单刷新各站点模型、激活站点标记、失败后自动弹出模型列表 | `QuickModelAction`、`CommitGenerationTask`、`ApiClient` |
+| 提交面板按站点分组快速切换模型、缓存立即打开、单站点刷新并原地更新、激活站点标记、失败后自动弹出模型列表 | `QuickModelAction`、`QuickModelPopupSupport`、`ApiModelCache`、`CommitGenerationTask`、`ApiClient` |
 | 统一双标签设置、界面语言、外部编辑器选择 | `com.fs.aicommit.GenerateCommitMessageConfigurable` |
 | 全局中英文资源 | `SubMsgBundle`、`messages/SubMsgBundle*.properties` |
 | Claude、Codex、Cursor、OpenCode、Gemini/agy、Grok、OMP、Pi 的 AI Commit 路由 | `SdkDefinition`、`AiCommitService`、`ProviderModelPanel` |

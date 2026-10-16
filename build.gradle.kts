@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.fs"
-version = "1.0.0"
+version = "1.0.1"
 
 repositories {
     // 优先使用国内镜像,直连 Maven Central 在部分网络环境下无法访问

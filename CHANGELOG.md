@@ -5,6 +5,22 @@ All notable changes to the Generate Commit Message plugin will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-10-16
+
+### Added
+- Persistent per-site API model caches with model count and last-success time
+- Independent model refresh actions in the quick popup and API settings page
+- In-place quick-popup list replacement after a successful refresh
+
+### Changed
+- Opening the API quick switcher now reads the saved cache immediately instead of refreshing every site
+- Successful refreshes replace stale cache entries with the current model and the latest remote result
+
+### Fixed
+- Failed, cancelled, empty and stale refresh results no longer discard the previous cache
+- Switching models while a refresh is running no longer restores the request's old model
+- Quick model popup class loading on IntelliJ IDEA 2026.1 after removal of the obsolete `KeepingPopupOpenAction` internal API
+
 ## [1.0.0] - 2026-09-05
 
 ### Added

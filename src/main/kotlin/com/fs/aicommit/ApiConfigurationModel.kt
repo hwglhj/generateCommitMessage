@@ -43,6 +43,9 @@ class ApiConfigurationModel internal constructor(private val credentials: ApiCre
     internal fun exportJson(includeApiKeys: Boolean): String =
         ApiSiteTransfer.encode(configs, activeId, includeApiKeys)
 
+    internal fun applyModelCache(update: ApiModelCacheUpdate): Boolean =
+        ApiModelCache.apply(configs, update)
+
     private var baseline: List<ApiProviderConfig> = emptyList()
 
     fun isModified(settings: AiCommitSettings): Boolean =
