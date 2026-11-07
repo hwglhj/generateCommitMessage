@@ -34,23 +34,14 @@ jobs:
           ${{ runner.os }}-gradle-
 
     - name: Build and test release artifacts
+      shell: bash
       run: |
         chmod +x gradlew
         ./gradlew "-Dorg.gradle.java.home=$JAVA_HOME" test verifyPlugin generateUpdatePluginsXml --no-daemon 2>&1 | tee build.log
 
     - name: Report Gradle failure
       if: failure()
-      run: |
-        python3 - <<'PY'
-        from pathlib import Path
-        log = Path('build.log')
-        if log.exists():
-            text = log.read_text(encoding='utf-8', errors='replace')
-            marker = 'FAILURE: Build failed with an exception.'
-            detail = text[text.rfind(marker):] if marker in text else text[-16000:]
-            detail = detail[-16000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-            print(f'::error title=Gradle build failed::{detail}')
-        PY
+      run: python3 scripts/ci/01-report-build-failure.py
 
     - name: Get version
       id: version

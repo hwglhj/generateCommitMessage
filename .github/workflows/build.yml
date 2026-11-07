@@ -10,6 +10,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
@@ -43,17 +44,7 @@ jobs:
     - name: Report Gradle failure
       if: failure()
       shell: bash
-      run: |
-        python - <<'PY'
-        from pathlib import Path
-        log = Path('build.log')
-        if log.exists():
-            text = log.read_text(encoding='utf-8', errors='replace')
-            marker = 'FAILURE: Build failed with an exception.'
-            detail = text[text.rfind(marker):] if marker in text else text[-16000:]
-            detail = detail[-16000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-            print(f'::error title=Gradle build failed::{detail}')
-        PY
+      run: python scripts/ci/01-report-build-failure.py
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
