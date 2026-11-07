@@ -15,16 +15,15 @@ IntelliJ IDEA plugin based on [l-ning/cli-tools-idea](https://github.com/l-ning/
 - Eight CLI terminal entries with individual visibility controls and high permission switches where the CLI supports one.
 - Open the current file at its cursor position in VS Code, Cursor, Antigravity or Windsurf.
 - Windows executable and npm launcher detection, npm/nvm PATH support, cancellation and process timeouts.
-- A quick model switcher beside the commit-panel lightning action. The API menu opens immediately from the saved cache; each site has its own refresh action, and a successful refresh replaces the visible list without closing the popup. The active site is marked with a check and its current model. Generation failures open the same list so you can switch and retry.
+- A quick model switcher beside the commit-panel lightning action. The API menu opens immediately from the saved cache; each site has its own refresh action, and a successful refresh replaces the visible list without closing the popup. The active site is marked with a check and its current model. After a generation failure, selecting a model in the failure popup immediately retries the original selection using the new configuration.
 
 AI Inline and REST API Search are not part of this plugin.
 
-## What's new in 1.0.1
+## What's new in 1.0.2
 
-- Quick model switching no longer waits for every API site to respond; it reads the last successful cache immediately.
-- Refresh one API site from the quick popup or API settings page. The current popup stays open and updates in place when the request finishes.
-- Empty, failed, cancelled and stale refresh results preserve the previous cache. Cache size and last-success time are shown per site.
-- Fixed model changes made while a refresh is running, and restored quick-popup compatibility with IntelliJ IDEA 2026.1.
+- A GitHub Releases update repository lets IDEA identify the plugin's update source and find newer versions.
+- Selecting another API or CLI model after a generation failure immediately retries the original request.
+- The release workflow checks IDEA 2026.1.5, 2026.2, 2026.2.4 and 2026.3 with JetBrains Plugin Verifier before publishing the ZIP and update manifest.
 
 ## Screenshots
 
@@ -60,15 +59,17 @@ Select changes in the Commit tool window and click the lightning action. The plu
 
 ### Switch sites and models from the Commit tool window
 
-The model-list action beside the lightning button opens a grouped site/model menu immediately from the saved cache. The active site is marked with a check, models can be switched without opening Settings, and each site can be refreshed independently without closing the popup. Failed generation automatically opens the same selector for a quick retry.
+The model-list action beside the lightning button opens a grouped site/model menu immediately from the saved cache. The active site is marked with a check, models can be switched without opening Settings, and each site can be refreshed independently without closing the popup. If generation fails, selecting a model in the failure popup immediately retries using that site and model; no second click on the lightning button is needed. This works in API and CLI modes. Closing the popup leaves the request stopped. Opening the switcher from the toolbar only changes the model setting.
 
 ![Quick site and model switcher](docs/images/quick-model-switcher.png)
 
 ## Setup
 
-Requires IntelliJ IDEA 2022.2 or later and the bundled Terminal plugin. The build targets platform 222 and Java 17. Version 1.0.1 also removes the obsolete popup API that failed to load in IntelliJ IDEA 2026.1.
+Requires IntelliJ IDEA 2022.2 or later and the bundled Terminal plugin. The build targets platform 222 and Java 17. Releases are gated on JetBrains binary compatibility checks for **IDEA 2026.1.5, 2026.2, 2026.2.4 and 2026.3**; see the [version matrix and update channel](docs/IDE_COMPATIBILITY.md).
 
-Install the ZIP from `build/distributions/` using Settings > Plugins > Install Plugin from Disk, then restart the IDE. Configure Settings > Tools > Generate Commit Message, which contains **AI Commit** and **CLI Tools** tabs.
+Download `generateCommitMessage-1.0.2.zip` from [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) and install it using Settings > Plugins > Install Plugin from Disk, then restart the IDE. Configure Settings > Tools > Generate Commit Message, which contains **AI Commit** and **CLI Tools** tabs.
+
+For updates, add `https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml` under Settings > Plugins > ⚙️ > Manage Plugin Repositories. If IDEA displays “Unable to identify where Generate Commit Message was installed from”, select this repository in the plugin's update-source selector, then check for updates. See the [installation guide](INSTALL_GUIDE.md#插件更新来源).
 
 CLI mode requires a separately installed and authenticated CLI. The optional executable path applies to the selected AI Commit CLI. Model candidates may include a public catalog or built-in fallback; the Test button verifies the selected model against the configured CLI. API mode does not require a local CLI. Custom APIs must implement the OpenAI chat-completions protocol; this is not universal provider support. Providers without `/models` can use a manually entered model. The API settings toolbar includes Windows-compatible JSON import/export controls.
 
@@ -79,11 +80,10 @@ High permission options pass each supported CLI's own approval flags. Pi inherit
 Use JDK 17 and Gradle 7.4.2 already installed on this machine:
 
 ```powershell
-& 'D:\gradle-7.4.2\bin\gradle.bat' test --no-daemon
-& 'D:\gradle-7.4.2\bin\gradle.bat' buildPlugin --no-daemon
+& 'D:\gradle-7.4.2\bin\gradle.bat' test verifyPlugin generateUpdatePluginsXml --no-daemon
 ```
 
-The artifact is `build/distributions/generateCommitMessage-1.0.1.zip`. No Git write operations are needed for a local build. Test temporary files use `tmp/tests/`.
+The artifacts are `build/distributions/generateCommitMessage-1.0.2.zip` and `build/distributions/updatePlugins.xml`. The release workflow publishes both files after tests and version compatibility checks pass. No Git write operations are needed for a local build. Test temporary files use `tmp/tests/`.
 
 See [installation and acceptance](INSTALL_GUIDE.md), [feature map](FEATURE_SUMMARY.md), [verification record](FINAL_SUMMARY.md), and [document index](DOCS_INDEX.md). Build and automated test results do not establish live provider availability or compatibility with every CLI version.
 

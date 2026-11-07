@@ -5,6 +5,17 @@ All notable changes to the Generate Commit Message plugin will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-11-07
+
+### Added
+- Generate `updatePlugins.xml` from the packaged plugin metadata and publish it alongside the ZIP in GitHub Releases, providing a custom update repository for IDEA's update-source selection
+- Gate GitHub Releases on Plugin Verifier checks for IDEA 2026.1.5, 2026.2, 2026.2.4 and 2026.3
+
+### Changed
+- Selecting an API or CLI model in the generation-failure popup immediately retries the original selection with the new configuration
+- The failure popup explains that selecting a model starts a retry; the toolbar switcher continues to change settings only
+- Build and release workflows run tests and plugin structure checks before producing release assets
+
 ## [1.0.1] - 2026-10-16
 
 ### Added

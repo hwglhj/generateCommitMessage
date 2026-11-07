@@ -2,6 +2,7 @@ package com.fs.aicommit
 
 import com.fs.i18n.SubMsgBundle.message as tr
 import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
@@ -28,6 +29,40 @@ internal class GenerationGate {
         private val closed = AtomicBoolean(false)
         override fun close() {
             if (closed.compareAndSet(false, true)) release(this)
+        }
+    }
+}
+
+/** 一次提交生成及用户选模型后的重试，共用原始输入和结果回调。 */
+internal class CommitGenerationRequest(
+    private val project: Project?,
+    private val settings: AiCommitSettings,
+    private val generate: (AiCommitSettings, ProgressIndicator) -> String,
+    private val generated: (String) -> Unit,
+    private val failed: (Throwable) -> Unit,
+    private val canceled: () -> Unit,
+    private val showModelSwitcher: (() -> Unit) -> Unit,
+    private val canUpdateUi: () -> Boolean,
+    private val runTask: (CommitGenerationTask) -> Unit = { ProgressManager.getInstance().run(it) },
+) {
+    fun start() {
+        if (!canUpdateUi()) return
+        val token = CommitGenerationTask.gate.acquire() ?: return
+        try {
+            // 选中模型后才创建新的快照，避免重用上一次失败请求的配置。
+            val snapshot = settings.generationSnapshot()
+            runTask(CommitGenerationTask(
+                project, token,
+                generate = { indicator -> generate(snapshot, indicator) },
+                generated = generated,
+                failed = failed,
+                canceled = canceled,
+                showModelSwitcher = { showModelSwitcher(::start) },
+                canUpdateUi = canUpdateUi,
+            ))
+        } catch (error: Throwable) {
+            token.close()
+            throw error
         }
     }
 }

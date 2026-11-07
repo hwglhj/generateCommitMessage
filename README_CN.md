@@ -16,16 +16,15 @@
 - 右侧保留 8 个 CLI 终端入口，每个工具独立控制图标；仅对支持额外权限参数的 CLI 显示高权限启动开关。
 - 外部编辑器可选 VS Code、Cursor、Antigravity、Windsurf，打开当前文件并携带光标行列。
 - Windows 支持原生程序与 npm 启动器、npm/nvm 环境路径、生成取消和进程超时。
-- 提交面板闪电按钮旁提供快速切换模型；API 菜单直接读取缓存并立即打开，每个站点都有独立刷新入口，成功后在不关闭弹窗的情况下原地替换当前模型列表。一级菜单用勾选和“站点 — 当前模型”标记当前激活站点；生成失败时自动打开同一模型列表，切换后再次点击闪电即可重试。
+- 提交面板闪电按钮旁提供快速切换模型；API 菜单直接读取缓存并立即打开，每个站点都有独立刷新入口，成功后在不关闭弹窗的情况下原地替换当前模型列表。一级菜单用勾选和“站点 — 当前模型”标记当前激活站点；生成失败后，在弹出的列表中选中模型会立即使用新配置重试本次选中的文件。
 
 AI Inline 和 REST API Search 已从最终范围移除。
 
-## 1.0.1 更新内容
+## 1.0.2 更新内容
 
-- 快速切换模型不再等待所有 API 站点联网，默认立即读取上一次成功缓存。
-- 可以在快速菜单或 API 设置页单独刷新一个站点；请求完成后当前弹窗保持打开并原地更新列表。
-- 空结果、失败、取消或过期请求均保留旧缓存，每个站点显示缓存数量和上次成功时间。
-- 修复刷新期间切换模型时错误保留旧模型，以及 IntelliJ IDEA 2026.1 中快速菜单类加载失败的问题。
+- 新增 GitHub Releases 更新仓库，让 IDEA 可以识别插件更新来源并获取新版。
+- 生成失败后，在弹出的列表中选择其他 API 或 CLI 模型会立即重试本次请求。
+- 发布流程逐一检查 IDEA 2026.1.5、2026.2、2026.2.4、2026.3 的二进制兼容性，全部通过后才发布 ZIP 和更新清单。
 
 ## 界面预览
 
@@ -61,15 +60,17 @@ API 模式可以添加、编辑、删除、测试、刷新、导入和导出多�
 
 ### 在提交窗口快速切换站点和模型
 
-闪电按钮旁的模型列表按钮会立即从缓存打开按站点分组的模型菜单。当前站点带有勾选标记，无需进入设置即可切换模型；每个站点可独立刷新，刷新期间弹窗保持打开，成功后当前列表原地更新。生成失败时也会自动打开同一选择器，方便切换后重试。
+闪电按钮旁的模型列表按钮会立即从缓存打开按站点分组的模型菜单。当前站点带有勾选标记，无需进入设置即可切换模型；每个站点可独立刷新，刷新期间弹窗保持打开，成功后当前列表原地更新。生成失败后，在自动弹出的列表中选择模型，会立即使用选中的站点和模型重试，无需再次点击闪电按钮；API 与 CLI 模式均支持。关闭弹窗则停止本次操作，主动从工具栏打开列表时仍只修改模型设置。
 
 ![快速切换 API 站点和模型](docs/images/quick-model-switcher.png)
 
 ## 安装与配置
 
-最低 IntelliJ IDEA 2022.2，需启用 IDE 自带 Terminal 插件。编译基线为平台 222、Java 17。1.0.1 已移除导致 IntelliJ IDEA 2026.1 类加载失败的旧 Popup 内部接口。
+最低 IntelliJ IDEA 2022.2，需启用 IDE 自带 Terminal 插件。编译基线为平台 222、Java 17。正式发布前必须通过 **2026.1.5、2026.2、2026.2.4、2026.3** 的 JetBrains 官方二进制兼容检查，详见[版本兼容与更新渠道](docs/IDE_COMPATIBILITY.md)。
 
-从 `build/distributions/generateCommitMessage-1.0.1.zip` 安装：设置 > 插件 > 从磁盘安装插件，安装后重启 IDE。
+在 [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) 下载 `generateCommitMessage-1.0.2.zip`，通过 **设置 > 插件 > 从磁盘安装插件** 安装，然后重启 IDE。
+
+要在 IDEA 内获取后续更新，在 **设置 > 插件 > 齿轮 > 管理插件仓库** 添加 `https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml`。如果出现 “Unable to identify where Generate Commit Message was installed from”，在该插件的更新来源选择中选中此仓库，再检查更新。详见[插件更新来源说明](INSTALL_GUIDE.md#插件更新来源)。
 
 配置入口为 **设置 > 工具 > Generate Commit Message**，仅有 **AI Commit** 和 **CLI Tools** 两个标签页。页面上方设置界面语言和外部编辑器。
 
@@ -82,10 +83,9 @@ API 模式不要求本机安装 CLI。填写 Base URL、API Key、模型，选�
 使用本机已有 JDK 17 和 Gradle 7.4.2：
 
 ```powershell
-& 'D:\gradle-7.4.2\bin\gradle.bat' test --no-daemon
-& 'D:\gradle-7.4.2\bin\gradle.bat' buildPlugin --no-daemon
+& 'D:\gradle-7.4.2\bin\gradle.bat' test verifyPlugin generateUpdatePluginsXml --no-daemon
 ```
 
-产物在 `build/distributions/`，测试临时文件在 `tmp/tests/`。本地构建不需要暂存、提交或推送 Git。
+`build/distributions/` 内包含插件 ZIP 和 `updatePlugins.xml`；发布工作流会在测试通过后同时上传两者。测试临时文件在 `tmp/tests/`。本地构建不需要暂存、提交或推送 Git。
 
 详见[安装与验收](INSTALL_GUIDE.md)、[功能映射](FEATURE_SUMMARY.md)、[验证记录](FINAL_SUMMARY.md)和[文档索引](DOCS_INDEX.md)。自动化测试与打包通过不等于所有真实 API、CLI 版本和 IDE 版本均已实测。

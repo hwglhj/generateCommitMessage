@@ -133,7 +133,7 @@ class QuickModelAction : AnAction(), DumbAware {
             return true
         }
 
-        internal fun showPopup(project: Project, anchor: Component?, afterFailure: Boolean = false) {
+        internal fun showPopup(project: Project, anchor: Component?, retryGeneration: (() -> Unit)? = null) {
             if (project.isDisposed || CommitGenerationTask.gate.isRunning) return
             val settings = AiCommitSettings.getInstance()
             SubMsgBundle.language = settings.interfaceLanguage
@@ -154,7 +154,7 @@ class QuickModelAction : AnAction(), DumbAware {
                             if (currentSite == null || currentSite.choices.isEmpty()) {
                                 add(disabledAction(tr("action.quick.model.empty.site")))
                             } else {
-                                currentSite.choices.forEach { choice -> add(modelToggle(settings, project, choice)) }
+                                currentSite.choices.forEach { choice -> add(modelToggle(settings, project, choice, retryGeneration)) }
                             }
                             val config = settings.apiConfigs.firstOrNull { it.id == site.configId }
                             if (config != null) {
@@ -168,7 +168,7 @@ class QuickModelAction : AnAction(), DumbAware {
                 sites.any { it.choices.isNotEmpty() }
             } else {
                 val cliChoices = choices(settings)
-                cliChoices.forEach { choice -> group.add(modelToggle(settings, project, choice)) }
+                cliChoices.forEach { choice -> group.add(modelToggle(settings, project, choice, retryGeneration)) }
                 cliChoices.isNotEmpty()
             }
             if (!hasChoices && group.childActionsOrStubs.isEmpty()) {
@@ -184,10 +184,11 @@ class QuickModelAction : AnAction(), DumbAware {
                         .showSettingsDialog(project, GenerateCommitMessageConfigurable::class.java)
                 }
             })
-            val title = if (afterFailure) tr("action.quick.model.failure.title") else tr("action.quick.model.title")
+            val title = if (retryGeneration != null) tr("action.quick.model.failure.title") else tr("action.quick.model.title")
             val contextComponent = anchor ?: WindowManager.getInstance().getFrame(project)?.rootPane ?: JPanel()
             popup = QuickModelActionPopup(title, group, quickModelPopupDataContext(project, contextComponent))
-            popup.setAdText(tr("action.quick.model.hint"), SwingConstants.LEFT)
+            val hint = if (retryGeneration != null) tr("action.quick.model.failure.hint") else tr("action.quick.model.hint")
+            popup.setAdText(hint, SwingConstants.LEFT)
             if (anchor?.isShowing == true) popup.showUnderneathOf(anchor)
             else popup.showCenteredInCurrentWindow(project)
         }
@@ -266,7 +267,12 @@ class QuickModelAction : AnAction(), DumbAware {
             override fun update(event: AnActionEvent) { event.presentation.isEnabled = false }
         }
 
-        private fun modelToggle(settings: AiCommitSettings, project: Project, choice: Choice): ToggleAction =
+        internal fun modelToggle(
+            settings: AiCommitSettings,
+            project: Project,
+            choice: Choice,
+            onSelected: (() -> Unit)? = null,
+        ): ToggleAction =
             object : ToggleAction(choice.label), DumbAware {
                 override fun isSelected(event: AnActionEvent): Boolean =
                     if (choice.mode == AiCommitSettings.MODE_API) {
@@ -279,7 +285,7 @@ class QuickModelAction : AnAction(), DumbAware {
                     }
 
                 override fun setSelected(event: AnActionEvent, state: Boolean) {
-                    if (!project.isDisposed) select(settings, choice)
+                    if (!project.isDisposed && select(settings, choice)) onSelected?.invoke()
                 }
 
                 override fun update(event: AnActionEvent) {

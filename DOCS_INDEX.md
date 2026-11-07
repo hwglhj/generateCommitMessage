@@ -3,6 +3,7 @@
 - [中文使用说明](README_CN.md)
 - [English guide](README.md)
 - [安装与验收](INSTALL_GUIDE.md)
+- [IDEA 2026 兼容与更新渠道](docs/IDE_COMPATIBILITY.md)
 - [当前功能映射](FEATURE_SUMMARY.md)
 - [本次验证结果](FINAL_SUMMARY.md)
 - [历史需求来源](docs/claude-history/2026-09-06-recovered-requirements.md)

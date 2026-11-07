@@ -49,6 +49,7 @@ class SubMsgBundleTest {
             "action.quick.model.empty.site",
             "action.quick.model.refresh.site",
             "action.quick.model.refreshing",
+            "action.quick.model.failure.hint",
             "action.quick.model.cache",
             "action.quick.model.cache.unknown",
             "action.quick.model.cache.empty",

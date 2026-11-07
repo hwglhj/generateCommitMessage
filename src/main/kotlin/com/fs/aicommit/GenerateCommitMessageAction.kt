@@ -9,7 +9,6 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.PlatformCoreDataKeys
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.CheckinProjectPanel
@@ -51,34 +50,28 @@ class GenerateCommitMessageAction : AnAction(), DumbAware {
         // Detect edits made while generation is running before replacing the field.
         val originalMessage = readCommitMessage(e, commitPanel)
         val anchor = e.inputEvent?.component ?: e.getData(PlatformCoreDataKeys.CONTEXT_COMPONENT)
-        val token = CommitGenerationTask.gate.acquire() ?: return
-        try {
-            val snapshot = AiCommitSettings.getInstance().generationSnapshot()
-            ProgressManager.getInstance().run(CommitGenerationTask(
-                project, token,
-                generate = { indicator ->
-                    indicator.isIndeterminate = true
-                    AiCommitService(project, snapshot).generate(selection.changes, selection.unversionedFiles, indicator)
-                },
-                generated = { message ->
-                    if (originalMessage != null && readCommitMessage(e, commitPanel) != originalMessage) {
-                        notify(project, tr("commit.result.changed", com.intellij.openapi.util.text.StringUtil.escapeXmlEntities(message)), NotificationType.INFORMATION)
-                    } else {
-                        updateCommitMessage(project, commitPanel, message)
-                    }
-                },
-                canceled = { notify(project, tr("commit.canceled"), NotificationType.INFORMATION) },
-                failed = { error ->
-                    LOG.warn("Failed to generate commit message", error)
-                    notify(project, tr("error.generation.failed", com.intellij.openapi.util.text.StringUtil.escapeXmlEntities(error.message ?: error.javaClass.simpleName)), NotificationType.ERROR)
-                },
-                showModelSwitcher = { QuickModelAction.showPopup(project, anchor, afterFailure = true) },
-                canUpdateUi = { !project.isDisposed },
-            ))
-        } catch (error: Throwable) {
-            token.close()
-            throw error
-        }
+        CommitGenerationRequest(
+            project = project,
+            settings = AiCommitSettings.getInstance(),
+            generate = { snapshot, indicator ->
+                indicator.isIndeterminate = true
+                AiCommitService(project, snapshot).generate(selection.changes, selection.unversionedFiles, indicator)
+            },
+            generated = { message ->
+                if (originalMessage != null && readCommitMessage(e, commitPanel) != originalMessage) {
+                    notify(project, tr("commit.result.changed", com.intellij.openapi.util.text.StringUtil.escapeXmlEntities(message)), NotificationType.INFORMATION)
+                } else {
+                    updateCommitMessage(project, commitPanel, message)
+                }
+            },
+            canceled = { notify(project, tr("commit.canceled"), NotificationType.INFORMATION) },
+            failed = { error ->
+                LOG.warn("Failed to generate commit message", error)
+                notify(project, tr("error.generation.failed", com.intellij.openapi.util.text.StringUtil.escapeXmlEntities(error.message ?: error.javaClass.simpleName)), NotificationType.ERROR)
+            },
+            showModelSwitcher = { retry -> QuickModelAction.showPopup(project, anchor, retryGeneration = retry) },
+            canUpdateUi = { !project.isDisposed },
+        ).start()
     }
 
     /**

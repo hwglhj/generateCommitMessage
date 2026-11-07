@@ -1,3 +1,9 @@
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.transform.OutputKeys
+import javax.xml.transform.TransformerFactory
+import javax.xml.transform.dom.DOMSource
+import javax.xml.transform.stream.StreamResult
+
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "1.8.21"
@@ -5,7 +11,7 @@ plugins {
 }
 
 group = "com.fs"
-version = "1.0.1"
+version = "1.0.2"
 
 repositories {
     // 优先使用国内镜像,直连 Maven Central 在部分网络环境下无法访问
@@ -57,5 +63,51 @@ tasks {
 
     publishPlugin {
         token.set(System.getenv("PUBLISH_TOKEN"))
+    }
+
+    runPluginVerifier {
+        verifierVersion.set("1.411")
+        ideVersions.set(listOf("IU-2026.1.5", "IU-2026.2", "IU-2026.2.4", "IU-2026.3"))
+        failureLevel.set(listOf(
+            org.jetbrains.intellij.tasks.RunPluginVerifierTask.FailureLevel.COMPATIBILITY_PROBLEMS,
+            org.jetbrains.intellij.tasks.RunPluginVerifierTask.FailureLevel.INVALID_PLUGIN,
+            org.jetbrains.intellij.tasks.RunPluginVerifierTask.FailureLevel.MISSING_DEPENDENCIES,
+        ))
+    }
+}
+
+// IDEA needs a repository descriptor as well as the installable ZIP to identify an update source.
+tasks.register("generateUpdatePluginsXml") {
+    group = "intellij"
+    description = "Build the plugin and its GitHub Releases custom repository descriptor."
+    dependsOn(tasks.buildPlugin)
+
+    val descriptor = tasks.patchPluginXml.flatMap { it.destinationDir.file("plugin.xml") }
+    val archive = tasks.buildPlugin.flatMap { it.archiveFile }
+    val repositoryFile = layout.buildDirectory.file("distributions/updatePlugins.xml")
+    inputs.file(descriptor)
+    inputs.file(archive)
+    outputs.file(repositoryFile)
+
+    doLast {
+        val builder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+        val plugin = builder.parse(descriptor.get().asFile).documentElement
+        val pluginId = plugin.getElementsByTagName("id").item(0).textContent.trim()
+        val pluginVersion = plugin.getElementsByTagName("version").item(0).textContent.trim()
+        val repository = builder.newDocument()
+        val plugins = repository.createElement("plugins")
+        repository.appendChild(plugins)
+        val entry = repository.createElement("plugin")
+        entry.setAttribute("id", pluginId)
+        entry.setAttribute("version", pluginVersion)
+        entry.setAttribute("url", "https://github.com/hwglhj/generateCommitMessage/releases/download/" +
+            "v$pluginVersion/${archive.get().asFile.name}")
+        entry.appendChild(repository.importNode(plugin.getElementsByTagName("idea-version").item(0), true))
+        plugins.appendChild(entry)
+
+        TransformerFactory.newInstance().newTransformer().apply {
+            setOutputProperty(OutputKeys.ENCODING, "UTF-8")
+            setOutputProperty(OutputKeys.INDENT, "yes")
+        }.transform(DOMSource(repository), StreamResult(repositoryFile.get().asFile))
     }
 }

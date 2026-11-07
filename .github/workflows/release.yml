@@ -5,21 +5,26 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: read
+
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up JDK 17
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
 
     - name: Cache Gradle packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
@@ -28,35 +33,126 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Build Plugin
-      run: ./gradlew buildPlugin
+    - name: Build and test release artifacts
+      run: |
+        chmod +x gradlew
+        ./gradlew "-Dorg.gradle.java.home=$JAVA_HOME" test verifyPlugin generateUpdatePluginsXml --no-daemon
 
     - name: Get version
       id: version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      run: |
+        VERSION="${GITHUB_REF#refs/tags/v}"
+        test -f "build/distributions/generateCommitMessage-${VERSION}.zip"
+        echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+
+    - name: Upload release candidate
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-candidate
+        if-no-files-found: error
+        path: |
+          build/distributions/generateCommitMessage-${{ steps.version.outputs.VERSION }}.zip
+          build/distributions/updatePlugins.xml
+
+  compatibility:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        idea: ['2026.1.5', '2026.2', '2026.2.4', '2026.3']
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: release-candidate
+        path: candidate
+
+    - name: Download official IDE and Plugin Verifier
+      env:
+        IDEA_VERSION: ${{ matrix.idea }}
+      run: |
+        curl --fail --location --retry 2 --connect-timeout 20 --max-time 900 \
+          "https://download.jetbrains.com/idea/idea-${IDEA_VERSION}.tar.gz" -o idea.tar.gz
+        mkdir ide
+        tar -xzf idea.tar.gz -C ide --strip-components=1
+        rm idea.tar.gz
+        curl --fail --location --retry 2 --connect-timeout 20 --max-time 180 \
+          https://repo.maven.apache.org/maven2/org/jetbrains/intellij/plugins/verifier-cli/1.411/verifier-cli-1.411-all.jar \
+          -o verifier.jar
+
+    - name: Verify binary compatibility
+      env:
+        PLUGIN_VERSION: ${{ needs.build.outputs.version }}
+      run: |
+        ide/jbr/bin/java -Xmx3g -jar verifier.jar check-plugin -offline \
+          -verification-reports-dir reports -runtime-dir "$PWD/ide/jbr" \
+          "candidate/generateCommitMessage-${PLUGIN_VERSION}.zip" "$PWD/ide"
+        python3 - <<'PY'
+        from pathlib import Path
+        verdicts = list(Path('reports').rglob('verification-verdict.txt'))
+        if len(verdicts) != 1:
+            raise SystemExit(f'Expected one compatibility verdict, got {len(verdicts)}')
+        verdict = verdicts[0].read_text().strip()
+        print(verdict)
+        if verdict != 'Compatible' and not verdict.startswith('Compatible.'):
+            raise SystemExit('Plugin compatibility verification failed')
+        PY
+
+    - name: Upload compatibility report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: compatibility-${{ matrix.idea }}
+        path: reports/
+
+  release:
+    needs: [build, compatibility]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: release-candidate
+        path: candidate
 
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
-        name: Generate Commit Message v${{ steps.version.outputs.VERSION }}
+        name: Generate Commit Message v${{ needs.build.outputs.version }}
         draft: false
         prerelease: false
-        files: build/distributions/*.zip
+        fail_on_unmatched_files: true
+        files: |
+          candidate/generateCommitMessage-${{ needs.build.outputs.version }}.zip
+          candidate/updatePlugins.xml
         body: |
           ## What's Changed
 
-          See [CHANGELOG.md](https://github.com/hwglhj/generateCommitMessage/blob/main/CHANGELOG.md) for details.
+          - GitHub Releases now provides a custom update repository for IntelliJ IDEA.
+          - Selecting a model after a generation failure immediately retries the original request.
+          - The published ZIP passed JetBrains Plugin Verifier against IDEA 2026.1.5, 2026.2, 2026.2.4 and 2026.3.
+
+          See [CHANGELOG.md](https://github.com/hwglhj/generateCommitMessage/blob/master/CHANGELOG.md) for details.
 
           ## Installation
 
-          1. Download `generateCommitMessage-${{ steps.version.outputs.VERSION }}.zip`
+          1. Download `generateCommitMessage-${{ needs.build.outputs.version }}.zip`
           2. Open IntelliJ IDEA → Settings → Plugins
           3. Click ⚙️ → Install Plugin from Disk...
           4. Select the downloaded zip file
           5. Restart IDE
 
+          ## Updates in IntelliJ IDEA
+
+          Add this URL under Settings → Plugins → ⚙️ → Manage Plugin Repositories:
+
+          `https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml`
+
+          If IDEA asks where the plugin was installed from, select this repository as its update source.
+
           ## Quick Start
 
-          See [README.md](https://github.com/hwglhj/generateCommitMessage/blob/main/README.md) for detailed instructions.
+          See [README.md](https://github.com/hwglhj/generateCommitMessage/blob/master/README.md) for detailed instructions.
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
