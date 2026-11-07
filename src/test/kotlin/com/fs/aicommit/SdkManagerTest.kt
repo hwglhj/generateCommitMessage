@@ -44,7 +44,7 @@ class SdkManagerTest {
     @Test
     fun `windows installation directories include pi managed launcher`() {
         val dirs = SdkManager.installationDirectories("Windows 11", "C:\\Users\\test", emptyMap())
-        assertTrue(dirs.contains("C:\\Users\\test\\.pi\\agent\\bin"))
+        assertTrue(dirs.any { it.replace('\\', '/') == "C:/Users/test/.pi/agent/bin" })
     }
 
     @Test

@@ -4,7 +4,7 @@
 
 ## 版本检查
 
-1.0.2 起，GitHub Release 工作流使用 JetBrains Plugin Verifier 1.411 检查以下版本。每个版本独立下载官方 IDE 发行包，报告必须为 `Compatible`，全部通过后才上传正式 Release。
+1.0.3 起，GitHub Release 工作流使用 JetBrains Plugin Verifier 1.411 检查以下版本。每个版本独立下载官方 IDE 发行包，报告必须为 `Compatible`，全部通过后才上传正式 Release。
 
 | IDEA 版本 | 平台构建号 | 发布要求 |
 | --- | --- | --- |
@@ -25,7 +25,7 @@
 
 ## 配置更新来源
 
-1. 1.0.2 的正式 Release 同时提供 `generateCommitMessage-1.0.2.zip` 和 `updatePlugins.xml`。
+1. 1.0.3 的正式 Release 同时提供 `generateCommitMessage-1.0.3.zip` 和 `updatePlugins.xml`。
 2. 在 IDEA 的 **设置 > 插件 > 齿轮 > 管理插件仓库** 中添加：
 
    ```text

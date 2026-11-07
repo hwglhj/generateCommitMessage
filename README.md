@@ -19,7 +19,7 @@ IntelliJ IDEA plugin based on [l-ning/cli-tools-idea](https://github.com/l-ning/
 
 AI Inline and REST API Search are not part of this plugin.
 
-## What's new in 1.0.2
+## What's new in 1.0.3
 
 - A GitHub Releases update repository lets IDEA identify the plugin's update source and find newer versions.
 - Selecting another API or CLI model after a generation failure immediately retries the original request.
@@ -67,7 +67,7 @@ The model-list action beside the lightning button opens a grouped site/model men
 
 Requires IntelliJ IDEA 2022.2 or later and the bundled Terminal plugin. The build targets platform 222 and Java 17. Releases are gated on JetBrains binary compatibility checks for **IDEA 2026.1.5, 2026.2, 2026.2.4 and 2026.3**; see the [version matrix and update channel](docs/IDE_COMPATIBILITY.md).
 
-Download `generateCommitMessage-1.0.2.zip` from [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) and install it using Settings > Plugins > Install Plugin from Disk, then restart the IDE. Configure Settings > Tools > Generate Commit Message, which contains **AI Commit** and **CLI Tools** tabs.
+Download `generateCommitMessage-1.0.3.zip` from [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) and install it using Settings > Plugins > Install Plugin from Disk, then restart the IDE. Configure Settings > Tools > Generate Commit Message, which contains **AI Commit** and **CLI Tools** tabs.
 
 For updates, add `https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml` under Settings > Plugins > ⚙️ > Manage Plugin Repositories. If IDEA displays “Unable to identify where Generate Commit Message was installed from”, select this repository in the plugin's update-source selector, then check for updates. See the [installation guide](INSTALL_GUIDE.md#插件更新来源).
 
@@ -83,7 +83,7 @@ Use JDK 17 and Gradle 7.4.2 already installed on this machine:
 & 'D:\gradle-7.4.2\bin\gradle.bat' test verifyPlugin generateUpdatePluginsXml --no-daemon
 ```
 
-The artifacts are `build/distributions/generateCommitMessage-1.0.2.zip` and `build/distributions/updatePlugins.xml`. The release workflow publishes both files after tests and version compatibility checks pass. No Git write operations are needed for a local build. Test temporary files use `tmp/tests/`.
+The artifacts are `build/distributions/generateCommitMessage-1.0.3.zip` and `build/distributions/updatePlugins.xml`. The release workflow publishes both files after tests and version compatibility checks pass. No Git write operations are needed for a local build. Test temporary files use `tmp/tests/`.
 
 See [installation and acceptance](INSTALL_GUIDE.md), [feature map](FEATURE_SUMMARY.md), [verification record](FINAL_SUMMARY.md), and [document index](DOCS_INDEX.md). Build and automated test results do not establish live provider availability or compatibility with every CLI version.
 

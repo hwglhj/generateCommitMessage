@@ -20,7 +20,7 @@ Based on l-ning/cli-tools-idea. Requires IntelliJ IDEA 2022.2 or later with the 
 ]]></description>
 
     <change-notes><![CDATA[
-        <h3>1.0.2</h3>
+        <h3>1.0.3</h3>
         <ul>
             <li>新增 GitHub Releases 更新仓库，在 IDEA 中选择此更新来源后可检查和安装新版</li>
             <li>发布流程检查 IntelliJ IDEA 2026.1.5、2026.2、2026.2.4 和 2026.3 的二进制兼容性</li>
@@ -43,7 +43,7 @@ Based on l-ning/cli-tools-idea. Requires IntelliJ IDEA 2022.2 or later with the 
         </ul>
     ]]></change-notes>
 
-    <version>1.0.2</version>
+    <version>1.0.3</version>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>

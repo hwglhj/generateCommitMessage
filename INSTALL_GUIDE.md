@@ -8,7 +8,7 @@ IntelliJ IDEA 2022.2 或更新版本，启用内置 Terminal 插件。源码构�
 
 ## 从磁盘安装
 
-1. 从 [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) 下载 `generateCommitMessage-1.0.2.zip`；源码构建的同名文件在 `build/distributions/`。
+1. 从 [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) 下载 `generateCommitMessage-1.0.3.zip`；源码构建的同名文件在 `build/distributions/`。
 2. IDEA 设置 > 插件 > 从磁盘安装插件，选择 ZIP 并重启。
 3. 打开设置 > 工具 > Generate Commit Message，确认显示 AI Commit、CLI Tools 两个标签页。
 
@@ -24,7 +24,7 @@ IntelliJ IDEA 2022.2 或更新版本，启用内置 Terminal 插件。源码构�
 https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml
 ```
 
-随后打开已安装的 Generate Commit Message 详情，在更新来源选择中选中该仓库并应用。也可以点击通知中的 **Choose where to get updates from** 进入来源选择。然后检查插件更新，升级到 1.0.2 并重启。
+随后打开已安装的 Generate Commit Message 详情，在更新来源选择中选中该仓库并应用。也可以点击通知中的 **Choose where to get updates from** 进入来源选择。然后检查插件更新，升级到 1.0.3 并重启。
 
 更新清单与 ZIP 同版本发布。首次从磁盘安装或从旧 IDEA 迁移的用户需要选择一次来源，后续由 IDEA 从同一地址获取更新。
 
