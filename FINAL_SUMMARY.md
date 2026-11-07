@@ -16,7 +16,7 @@
 
 1.0.2 的发布任务因 Pi 路径测试在 Linux 上使用固定反斜杠而失败，未生成 Release。1.0.3 将该断言改为统一路径分隔符后比较，保留 Windows 路径检查，并在 CI 注释中输出具体失败用例。
 
-更新清单从最终插件描述符生成，ID、版本、兼容范围、ZIP 名和 Release URL 保持一致。两份 GitHub Actions 工作流的 YAML 解析通过。正式发布由 [Release 工作流](https://github.com/hwglhj/generateCommitMessage/actions/workflows/release.yml) 执行，远程报告随对应运行保存。
+更新清单从最终插件描述符生成，ID、版本、兼容范围、ZIP 名和 Release URL 保持一致。两份 GitHub Actions 工作流的 YAML 解析通过。[1.0.3 三系统构建任务](https://github.com/hwglhj/generateCommitMessage/actions/runs/42389438042)在 Windows、Linux、macOS 均成功；[正式发布任务](https://github.com/hwglhj/generateCommitMessage/actions/runs/42389438187)的构建、四版本兼容检查及 Release 上传全部成功。
 
 新增 8 项回归在 IntelliJ 测试环境中执行真实模型选择 Action，使用可控 HTTP 响应模拟失败与成功，检查新站点地址、新模型和原始输入是否用于重试；同时覆盖连续失败、CLI 思考等级、取消、项目关闭、防重复请求、过期选项以及普通工具栏切换。接线前测试复现了选中模型后没有发起新请求的问题，修复后通过。未使用真实第三方账号发起生成请求。
 
@@ -26,8 +26,9 @@
 
 ## 插件包
 
-- 文件：[generateCommitMessage-1.0.3.zip](build/distributions/generateCommitMessage-1.0.3.zip)
-- 更新清单：[updatePlugins.xml](build/distributions/updatePlugins.xml)，与 ZIP 同目录生成并随正式 Release 上传。
+- 正式版本：[GitHub Release v1.0.3](https://github.com/hwglhj/generateCommitMessage/releases/tag/v1.0.3)。
+- 安装包：[generateCommitMessage-1.0.3.zip](https://github.com/hwglhj/generateCommitMessage/releases/download/v1.0.3/generateCommitMessage-1.0.3.zip)，已实际下载验证。
+- 更新清单：[updatePlugins.xml](https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml)，已实际下载验证，与安装包元数据一致。
 - 包内 ID：`com.fs.generateCommitMessage`；vendor：`hwglhj`；最低平台：`222`。
 - 仅注册 `com.fs.aicommit.GenerateCommitMessageConfigurable`，保留 8 个 ToolWindow、中英文资源和设置搜索索引。
 - 两份未注册旧设置类已从源码和插件包移除，原文件仍可在 Git 历史中查看。
@@ -46,16 +47,20 @@
 
 ## 验收边界
 
-使用官方 Plugin Verifier 1.411、2026.3 自带 JBR，以离线模式检查本机安装的 IDEA：
+1.0.3 正式发布流程使用官方 Plugin Verifier 1.411 和各 IDEA 自带 JBR，检查同一个待发布 ZIP：
 
 | IDEA | 构建号 | 二进制兼容检查 |
 | --- | --- | --- |
-| 2026.1.5 | IU-261.27258.48 | Compatible；无缺失类或方法，存在废弃 API 警告 |
-| 2026.3 | IU-263.7307.200 | Compatible；无缺失类或方法，存在废弃 API 警告 |
+| 2026.1.5 | IU-261.27258.48 | Compatible |
+| 2026.2 | IU-262.8665.258 | Compatible |
+| 2026.2.4 | IU-262.11879.100 | Compatible |
+| 2026.3 | IU-263.7307.200 | Compatible |
 
-以上是发布前对同一功能代码的本机检查，原始报告保存在 `tmp/idea-compat/baseline-offline/`。两份最终报告均未报告依赖缺失。1.0.3 的正式发布流程在 GitHub 运行器上检查 2026.1.5、2026.2、2026.2.4、2026.3；全部返回 `Compatible` 后才能创建 Release，完整报告为对应运行的 `compatibility-版本号` 产物。
+四个版本全部返回 `Compatible` 后创建了 Release，完整报告为发布任务的 `compatibility-版本号` 产物。此前本机 2026.1.5、2026.3 对同一功能代码的检查也通过，有部分废弃及计划移除 API 警告，报告保存在 `tmp/idea-compat/baseline-offline/`。
 
 2026.3 日志显示原插件 1.0.1 已加载，英文安装来源提示由缺失的更新仓库记录引起。1.0.3 提供标准更新清单；从旧版本迁移的用户需要在 IDEA 中添加仓库并选择该更新来源，然后检查更新。见 [IDEA 2026 兼容与更新渠道](docs/IDE_COMPATIBILITY.md)。
+
+本机 IDEA 2026.3 已在退出状态下安装 GitHub 正式包 1.0.3，并添加更新仓库及该插件的来源记录。使用 IDEA 2026.3 自身的 XML 序列化类反序列化校验通过，已安装 JAR 的版本和 ID 校验通过。旧插件及两份配置已备份到 `tmp/idea-compat/install-1.0.3-20261108-001040/backup/`。启动 IDEA 的命令被自动审批检查拦截，尚未进行升级后的启动和通知界面复核；需要用户打开 IDEA 完成此项确认。
 
 真实 API 服务、各 CLI 账号以及 IDE 内完整交互仍需按 [安装与验收](INSTALL_GUIDE.md) 检查。无头设置索引构建已加载正式配置入口。
 
