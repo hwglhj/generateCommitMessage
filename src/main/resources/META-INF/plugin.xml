@@ -20,6 +20,12 @@ Based on l-ning/cli-tools-idea. Requires IntelliJ IDEA 2022.2 or later with the 
 ]]></description>
 
     <change-notes><![CDATA[
+        <h3>1.0.4</h3>
+        <ul>
+            <li>失败后选择新模型立即重试，生成期间保留选择面板，成功后自动关闭主面板及站点子菜单</li>
+            <li>重试失败或取消后恢复原面板，可继续选择其他模型，无需重新打开列表</li>
+            <li>生成期间显示状态并阻止重复请求，手动关闭面板后不再因失败重新弹出</li>
+        </ul>
         <h3>1.0.3</h3>
         <ul>
             <li>新增 GitHub Releases 更新仓库，在 IDEA 中选择此更新来源后可检查和安装新版</li>
@@ -43,7 +49,7 @@ Based on l-ning/cli-tools-idea. Requires IntelliJ IDEA 2022.2 or later with the 
         </ul>
     ]]></change-notes>
 
-    <version>1.0.3</version>
+    <version>1.0.4</version>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>

@@ -8,6 +8,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformCoreDataKeys
+import com.intellij.openapi.actionSystem.ToggleAction
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.actionSystem.impl.PresentationFactory
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
@@ -21,14 +22,23 @@ import com.intellij.ui.popup.WizardPopup
 import com.intellij.ui.popup.list.ListPopupImpl
 import com.intellij.ui.popup.list.ListPopupModel
 import java.awt.Component
+import java.awt.event.ActionEvent
 import java.awt.event.InputEvent
+import java.awt.event.KeyEvent
+import javax.swing.AbstractAction
+import javax.swing.SwingConstants
 
 /** 每次展开时重新读取当前设置，避免站点子菜单持有过期模型列表。 */
 internal class LivePopupActionGroup(
     text: String,
+    private val currentText: (() -> String)? = null,
     private val childrenProvider: () -> Array<AnAction>,
 ) : ActionGroup(text, true) {
     override fun getChildren(event: AnActionEvent?): Array<AnAction> = childrenProvider()
+
+    override fun update(event: AnActionEvent) {
+        currentText?.let { event.presentation.text = it() }
+    }
 }
 
 internal fun quickModelPopupDataContext(project: Project, component: Component): DataContext =
@@ -101,13 +111,14 @@ internal interface QuickModelPopupRefreshHandle {
 
 /**
  * IntelliJ 的 ActionGroup 子菜单默认会在执行普通 Action 后关闭。
- * 这里沿用原生 Action Popup，只为站点子菜单补上“保持打开”和原地替换列表的能力，
+ * 刷新站点和失败后的模型重试保留弹窗；普通工具栏选择沿用原生行为。
  * 且不依赖已从新版 IDE 删除的 KeepingPopupOpenAction 内部接口。
  */
 internal class QuickModelActionPopup(
     title: String,
     group: ActionGroup,
     private val popupDataContext: DataContext,
+    private val keepModelSelectionOpen: Boolean = false,
 ) : PopupFactoryImpl.ActionGroupPopup(
     title,
     group,
@@ -120,10 +131,52 @@ internal class QuickModelActionPopup(
     -1,
     null,
     null,
-) {
+), CommitModelSwitcher {
+    init {
+        if (keepModelSelectionOpen) {
+            registerAction("retryModelWithSpace", KeyEvent.VK_SPACE, 0, object : AbstractAction() {
+                override fun actionPerformed(event: ActionEvent?) {
+                    performKeepingPopupAction(this@QuickModelActionPopup, popupDataContext, true, true, null)
+                }
+            })
+        }
+    }
+
+    override val isOpen: Boolean get() = !isDisposed
+
+    override fun setGenerating(generating: Boolean) {
+        if (isDisposed) return
+        setAdText(tr(if (generating) "commit.generating" else "action.quick.model.failure.hint"), SwingConstants.LEFT)
+        list.isEnabled = !generating
+        (listStep as? ActionPopupStep)?.updateStepItems(list)
+        list.repaint()
+        (myChild as? KeepingActionListPopup)?.let {
+            it.list.isEnabled = !generating
+            it.updateActions()
+        }
+    }
+
+    override fun close() {
+        if (!isDisposed) cancel()
+    }
+
+    override fun handleSelect(handleFinalChoices: Boolean) {
+        if (!performKeepingPopupAction(this, popupDataContext, keepModelSelectionOpen, handleFinalChoices, null)) {
+            super.handleSelect(handleFinalChoices)
+        }
+    }
+
+    override fun handleSelect(handleFinalChoices: Boolean, inputEvent: InputEvent?) {
+        if (!performKeepingPopupAction(this, popupDataContext, keepModelSelectionOpen, handleFinalChoices, inputEvent)) {
+            super.handleSelect(handleFinalChoices, inputEvent)
+        }
+    }
+
     override fun createPopup(parent: WizardPopup, step: PopupStep<*>, parentValue: Any?): WizardPopup {
         if (step is ActionPopupStep) {
-            return KeepingActionListPopup(project, parent, step, parentValue, popupDataContext)
+            return KeepingActionListPopup(project, parent, step, parentValue, popupDataContext, keepModelSelectionOpen).apply {
+                list.isEnabled = !keepModelSelectionOpen || !CommitGenerationTask.gate.isRunning
+            }
         }
         return super.createPopup(parent, step, parentValue)
     }
@@ -138,28 +191,34 @@ internal class KeepingActionListPopup(
     step: ListPopupStep<*>,
     parentValue: Any?,
     private val popupDataContext: DataContext,
+    private val keepModelSelectionOpen: Boolean = false,
 ) : ListPopupImpl(project, parent, step, parentValue) {
+    init {
+        if (keepModelSelectionOpen) {
+            registerAction("retryModelWithSpace", KeyEvent.VK_SPACE, 0, object : AbstractAction() {
+                override fun actionPerformed(event: ActionEvent?) {
+                    performKeepingPopupAction(this@KeepingActionListPopup, popupDataContext, true, true, null)
+                }
+            })
+        }
+    }
+
     override fun handleSelect(handleFinalChoices: Boolean) {
-        if (!performKeepingAction(null)) super.handleSelect(handleFinalChoices)
+        if (!performKeepingPopupAction(this, popupDataContext, keepModelSelectionOpen, handleFinalChoices, null)) {
+            super.handleSelect(handleFinalChoices)
+        }
     }
 
     override fun handleSelect(handleFinalChoices: Boolean, inputEvent: InputEvent?) {
-        if (!performKeepingAction(inputEvent)) super.handleSelect(handleFinalChoices, inputEvent)
+        if (!performKeepingPopupAction(this, popupDataContext, keepModelSelectionOpen, handleFinalChoices, inputEvent)) {
+            super.handleSelect(handleFinalChoices, inputEvent)
+        }
     }
 
-    private fun performKeepingAction(inputEvent: InputEvent?): Boolean {
-        val actionStep = listStep as? ActionPopupStep ?: return false
-        val item = list.selectedValue as? PopupFactoryImpl.ActionItem ?: return false
-        if (!actionStep.isSelectable(item) || item.action !is ApiSiteRefreshAction) return false
-        val event = AnActionEvent.createFromAnAction(
-            item.action,
-            inputEvent,
-            ActionPlaces.POPUP,
-            popupDataContext,
-        )
-        ActionUtil.performActionDumbAwareWithCallbacks(item.action, event)
-        actionStep.updateStepItems(list)
-        return true
+    fun updateActions() {
+        if (isDisposed) return
+        (listStep as? ActionPopupStep)?.updateStepItems(list)
+        list.repaint()
     }
 
     fun refreshHandle(): QuickModelPopupRefreshHandle = object : QuickModelPopupRefreshHandle {
@@ -176,4 +235,30 @@ internal class KeepingActionListPopup(
             pack(true, true)
         }
     }
+}
+
+/** 只拦截本插件需要保持打开的操作，不让原生选择逻辑提前销毁弹窗。 */
+private fun performKeepingPopupAction(
+    popup: ListPopupImpl,
+    dataContext: DataContext,
+    keepModelSelectionOpen: Boolean,
+    finalChoice: Boolean,
+    inputEvent: InputEvent?,
+): Boolean {
+    if (keepModelSelectionOpen && CommitGenerationTask.gate.isRunning) return true
+    val step = popup.listStep as? ActionPopupStep ?: return false
+    val item = popup.list.selectedValue as? PopupFactoryImpl.ActionItem ?: return false
+    if (item.action !is ApiSiteRefreshAction && !(keepModelSelectionOpen && item.action is ToggleAction)) return false
+    if (!finalChoice || popup.isDisposed) return true
+    val event = AnActionEvent.createFromAnAction(item.action, inputEvent, ActionPlaces.POPUP, dataContext)
+    // 列表展示可能早于任务状态变化；执行前再更新，避免重复点击使用旧的 enabled 状态。
+    item.action.update(event)
+    if (event.presentation.isEnabled && event.presentation.isVisible) {
+        ActionUtil.performActionDumbAwareWithCallbacks(item.action, event)
+    }
+    if (!popup.isDisposed) {
+        step.updateStepItems(popup.list)
+        popup.list.repaint()
+    }
+    return true
 }

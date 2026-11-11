@@ -8,7 +8,7 @@ IntelliJ IDEA 2022.2 或更新版本，启用内置 Terminal 插件。源码构�
 
 ## 从磁盘安装
 
-1. 从 [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) 下载 `generateCommitMessage-1.0.3.zip`；源码构建的同名文件在 `build/distributions/`。
+1. 从 [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) 下载 `generateCommitMessage-1.0.4.zip`；源码构建的同名文件在 `build/distributions/`。
 2. IDEA 设置 > 插件 > 从磁盘安装插件，选择 ZIP 并重启。
 3. 打开设置 > 工具 > Generate Commit Message，确认显示 AI Commit、CLI Tools 两个标签页。
 
@@ -24,7 +24,7 @@ IntelliJ IDEA 2022.2 或更新版本，启用内置 Terminal 插件。源码构�
 https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml
 ```
 
-随后打开已安装的 Generate Commit Message 详情，在更新来源选择中选中该仓库并应用。也可以点击通知中的 **Choose where to get updates from** 进入来源选择。然后检查插件更新，升级到 1.0.3 并重启。
+随后打开已安装的 Generate Commit Message 详情，在更新来源选择中选中该仓库并应用。也可以点击通知中的 **Choose where to get updates from** 进入来源选择。然后检查插件更新，升级到 1.0.4 并重启。
 
 更新清单与 ZIP 同版本发布。首次从磁盘安装或从旧 IDEA 迁移的用户需要选择一次来源，后续由 IDEA 从同一地址获取更新。
 
@@ -44,7 +44,9 @@ https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updateP
 
 提交信息输入框上方，闪电按钮左侧的列表图标是“快速切换模型”。API 模式立即列出已缓存的「配置名 — 模型」，站点子菜单可单独重新获取模型，完成后弹窗保持打开并原地更新；CLI 模式列出当前模型及缓存/内置候选，保留思考等级。选中项有勾，修改会同步到插件设置，对同一 IDEA 中的所有项目生效。
 
-生成失败会保留提交框内容并自动弹出列表，选择模型后立即用新配置重试本次选中的文件，无需再次点击闪电；API 与 CLI 模式均支持。再次失败会重新打开选择列表，关闭弹窗或取消任务则停止本次操作。主动从工具栏打开列表时仍只修改模型设置。生成期间暂时禁用模型切换和重复生成，手动修改过的提交文字不会被重试结果覆盖。列表末尾的“管理模型配置”可直接打开插件设置；CLI 候选的刷新或新模型的手动输入仍在设置页完成。
+生成失败会保留提交框内容并自动弹出列表，选择模型后立即用新配置重试本次选中的文件，无需再次点击闪电；API 与 CLI 模式均支持。重试期间保留原弹窗，成功时关闭主面板及站点子菜单，失败时恢复选择而不创建第二个弹窗。取消任务后可继续在原面板选择；手动关闭面板不会终止已经发出的请求，但后续失败不会重新弹窗。
+
+主动从工具栏打开列表时仍只修改模型设置。生成期间暂时禁用模型切换和重复生成，手动修改过的提交文字不会被重试结果覆盖。列表末尾的“管理模型配置”可直接打开插件设置；CLI 候选的刷新或新模型的手动输入仍在设置页完成。
 
 1. 切换中英文界面并保存，重新打开设置检查持久化；输出语言独立设置。
 2. 添加两套 API 配置，修改、激活、删除、取消和重置后检查结果。
@@ -52,7 +54,7 @@ https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updateP
 4. 勾选部分变更生成，确认未勾选文件不参与；全部取消勾选应提示没有变更。
 5. 检查近期提交、附加提示、Diff 限制、中文和英文输出。
 6. 在生成过程中取消或编辑提交文字，确认已有输入得到保留。
-7. 故意选择不可用模型并生成，确认失败后自动弹出列表；选择另一个站点或模型，确认立即开始生成，无需再点闪电。关闭失败弹窗时不应发送请求，普通工具栏切换也不应自动生成。
+7. 故意选择不可用模型并生成，确认失败后自动弹出列表；选择另一个站点或模型，确认立即开始生成，无需再点闪电。检查重试期间面板保留、重复点击不发新请求、连续失败仍在同一面板、成功后主面板和子菜单均关闭。关闭失败弹窗时不应发送请求，普通工具栏切换也不应自动生成。
 8. 切换各 CLI 图标与高权限开关，打开侧栏终端；高权限为工具自身参数，不是管理员提权。
 9. 选择已安装的外部编辑器，通过编辑器右键菜单打开文件，核对行列位置。
 

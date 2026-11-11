@@ -5,6 +5,12 @@ All notable changes to the Generate Commit Message plugin will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-11-11
+
+### Fixed
+- Keep the same model picker open during generation retries and after failures; close the root picker and site submenu only when generation succeeds
+- Refresh the selected model and busy state in place, block duplicate retries, and respect a manually dismissed picker
+
 ## [1.0.3] - 2026-11-08
 
 Includes the changes prepared for 1.0.2. The 1.0.2 tag failed CI and did not produce a release.

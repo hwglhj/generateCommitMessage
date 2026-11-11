@@ -20,10 +20,11 @@
 
 AI Inline 和 REST API Search 已从最终范围移除。
 
-## 1.0.3 更新内容
+## 1.0.4 更新内容
 
-- 新增 GitHub Releases 更新仓库，让 IDEA 可以识别插件更新来源并获取新版。
-- 生成失败后，在弹出的列表中选择其他 API 或 CLI 模型会立即重试本次请求。
+- 生成失败后，选择其他 API 或 CLI 模型立即重试；生成期间保留选择面板，成功后才自动关闭。
+- 重试失败或取消后恢复原面板，可以继续选择其他模型；成功时同时关闭主面板和站点子菜单。
+- 面板显示生成状态并阻止重复请求；手动关闭面板后，失败结果不会再次弹出列表。
 - 发布流程逐一检查 IDEA 2026.1.5、2026.2、2026.2.4、2026.3 的二进制兼容性，全部通过后才发布 ZIP 和更新清单。
 
 ## 界面预览
@@ -60,7 +61,11 @@ API 模式可以添加、编辑、删除、测试、刷新、导入和导出多�
 
 ### 在提交窗口快速切换站点和模型
 
-闪电按钮旁的模型列表按钮会立即从缓存打开按站点分组的模型菜单。当前站点带有勾选标记，无需进入设置即可切换模型；每个站点可独立刷新，刷新期间弹窗保持打开，成功后当前列表原地更新。生成失败后，在自动弹出的列表中选择模型，会立即使用选中的站点和模型重试，无需再次点击闪电按钮；API 与 CLI 模式均支持。关闭弹窗则停止本次操作，主动从工具栏打开列表时仍只修改模型设置。
+闪电按钮旁的模型列表按钮会立即从缓存打开按站点分组的模型菜单。当前站点带有勾选标记，无需进入设置即可切换模型；每个站点可独立刷新，刷新期间弹窗保持打开，成功后当前列表原地更新。
+
+生成失败后，在自动弹出的列表中选择其他 API 或 CLI 模型即可立即重试，无需再次点击闪电按钮。重试期间保留弹窗并禁用重复选择，成功后自动关闭，失败则留在原弹窗继续选择。
+
+手动关闭后，失败结果不会重新弹出面板；如需停止正在进行的请求，使用任务的取消按钮。主动从工具栏打开列表时仍只修改模型设置。
 
 ![快速切换 API 站点和模型](docs/images/quick-model-switcher.png)
 
@@ -68,7 +73,7 @@ API 模式可以添加、编辑、删除、测试、刷新、导入和导出多�
 
 最低 IntelliJ IDEA 2022.2，需启用 IDE 自带 Terminal 插件。编译基线为平台 222、Java 17。正式发布前必须通过 **2026.1.5、2026.2、2026.2.4、2026.3** 的 JetBrains 官方二进制兼容检查，详见[版本兼容与更新渠道](docs/IDE_COMPATIBILITY.md)。
 
-在 [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) 下载 `generateCommitMessage-1.0.3.zip`，通过 **设置 > 插件 > 从磁盘安装插件** 安装，然后重启 IDE。
+在 [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) 下载 `generateCommitMessage-1.0.4.zip`，通过 **设置 > 插件 > 从磁盘安装插件** 安装，然后重启 IDE。
 
 要在 IDEA 内获取后续更新，在 **设置 > 插件 > 齿轮 > 管理插件仓库** 添加 `https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml`。如果出现 “Unable to identify where Generate Commit Message was installed from”，在该插件的更新来源选择中选中此仓库，再检查更新。详见[插件更新来源说明](INSTALL_GUIDE.md#插件更新来源)。
 

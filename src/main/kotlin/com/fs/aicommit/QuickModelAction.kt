@@ -133,9 +133,21 @@ class QuickModelAction : AnAction(), DumbAware {
             return true
         }
 
-        internal fun showPopup(project: Project, anchor: Component?, retryGeneration: (() -> Unit)? = null) {
-            if (project.isDisposed || CommitGenerationTask.gate.isRunning) return
-            val settings = AiCommitSettings.getInstance()
+        internal fun showPopup(project: Project, anchor: Component?, retryGeneration: (() -> Unit)? = null): CommitModelSwitcher? {
+            if (project.isDisposed || CommitGenerationTask.gate.isRunning) return null
+            val contextComponent = anchor ?: WindowManager.getInstance().getFrame(project)?.rootPane ?: JPanel()
+            val popup = createPopup(project, AiCommitSettings.getInstance(), contextComponent, retryGeneration)
+            if (anchor?.isShowing == true) popup.showUnderneathOf(anchor)
+            else popup.showCenteredInCurrentWindow(project)
+            return popup
+        }
+
+        internal fun createPopup(
+            project: Project,
+            settings: AiCommitSettings,
+            contextComponent: Component,
+            retryGeneration: (() -> Unit)? = null,
+        ): QuickModelActionPopup {
             SubMsgBundle.language = settings.interfaceLanguage
             val group = DefaultActionGroup()
             var popup: QuickModelActionPopup? = null
@@ -143,7 +155,9 @@ class QuickModelAction : AnAction(), DumbAware {
                 val sites = apiSites(settings)
                 sites.forEach { site ->
                     lateinit var siteGroup: LivePopupActionGroup
-                    siteGroup = LivePopupActionGroup(siteMenuLabel(site)) {
+                    siteGroup = LivePopupActionGroup(siteMenuLabel(site), currentText = {
+                        apiSites(settings).firstOrNull { it.configId == site.configId }?.let(::siteMenuLabel) ?: site.label
+                    }) {
                         val currentSite = apiSites(settings).firstOrNull { it.configId == site.configId }
                         buildList<AnAction> {
                             add(ApiSiteRefreshAction(site.configId, project) {
@@ -185,12 +199,11 @@ class QuickModelAction : AnAction(), DumbAware {
                 }
             })
             val title = if (retryGeneration != null) tr("action.quick.model.failure.title") else tr("action.quick.model.title")
-            val contextComponent = anchor ?: WindowManager.getInstance().getFrame(project)?.rootPane ?: JPanel()
-            popup = QuickModelActionPopup(title, group, quickModelPopupDataContext(project, contextComponent))
+            popup = QuickModelActionPopup(title, group, quickModelPopupDataContext(project, contextComponent),
+                keepModelSelectionOpen = retryGeneration != null)
             val hint = if (retryGeneration != null) tr("action.quick.model.failure.hint") else tr("action.quick.model.hint")
             popup.setAdText(hint, SwingConstants.LEFT)
-            if (anchor?.isShowing == true) popup.showUnderneathOf(anchor)
-            else popup.showCenteredInCurrentWindow(project)
+            return popup
         }
 
         private fun refreshApiSite(

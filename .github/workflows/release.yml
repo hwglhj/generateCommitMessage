@@ -134,8 +134,9 @@ jobs:
         body: |
           ## What's Changed
 
-          - GitHub Releases now provides a custom update repository for IntelliJ IDEA.
-          - Selecting a model after a generation failure immediately retries the original request.
+          - Selecting a new API or CLI model after a generation failure immediately retries the original request while keeping the picker open.
+          - A successful retry closes the picker and site submenu; a failed or cancelled retry restores the same picker so you can choose another model.
+          - The picker shows generation progress, blocks duplicate retries, and respects manual dismissal.
           - The published ZIP passed JetBrains Plugin Verifier against IDEA 2026.1.5, 2026.2, 2026.2.4 and 2026.3.
 
           See [CHANGELOG.md](https://github.com/hwglhj/generateCommitMessage/blob/master/CHANGELOG.md) for details.

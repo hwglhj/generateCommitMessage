@@ -33,6 +33,13 @@ internal class GenerationGate {
     }
 }
 
+/** 同一次生成过程持有的模型选择面板。 */
+internal interface CommitModelSwitcher {
+    val isOpen: Boolean
+    fun setGenerating(generating: Boolean)
+    fun close()
+}
+
 /** 一次提交生成及用户选模型后的重试，共用原始输入和结果回调。 */
 internal class CommitGenerationRequest(
     private val project: Project?,
@@ -41,27 +48,40 @@ internal class CommitGenerationRequest(
     private val generated: (String) -> Unit,
     private val failed: (Throwable) -> Unit,
     private val canceled: () -> Unit,
-    private val showModelSwitcher: (() -> Unit) -> Unit,
+    private val showModelSwitcher: (() -> Unit) -> CommitModelSwitcher?,
     private val canUpdateUi: () -> Boolean,
     private val runTask: (CommitGenerationTask) -> Unit = { ProgressManager.getInstance().run(it) },
 ) {
+    private var modelSwitcher: CommitModelSwitcher? = null
+
     fun start() {
-        if (!canUpdateUi()) return
+        if (!canUpdateUi() || modelSwitcher?.isOpen == false) return
         val token = CommitGenerationTask.gate.acquire() ?: return
         try {
+            modelSwitcher?.setGenerating(true)
             // 选中模型后才创建新的快照，避免重用上一次失败请求的配置。
             val snapshot = settings.generationSnapshot()
             runTask(CommitGenerationTask(
                 project, token,
                 generate = { indicator -> generate(snapshot, indicator) },
-                generated = generated,
+                generated = { message ->
+                    modelSwitcher?.close()
+                    generated(message)
+                },
                 failed = failed,
-                canceled = canceled,
-                showModelSwitcher = { showModelSwitcher(::start) },
+                canceled = {
+                    modelSwitcher?.setGenerating(false)
+                    canceled()
+                },
+                showModelSwitcher = {
+                    if (modelSwitcher == null) modelSwitcher = showModelSwitcher(::start)
+                    else modelSwitcher?.setGenerating(false)
+                },
                 canUpdateUi = canUpdateUi,
             ))
         } catch (error: Throwable) {
             token.close()
+            modelSwitcher?.setGenerating(false)
             throw error
         }
     }
