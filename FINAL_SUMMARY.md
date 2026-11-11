@@ -1,14 +1,24 @@
 # 重建验证记录
 
-核验日期：2026-11-11。当前源码版本：1.0.4，正在发布重试成功后关闭模型面板的修复；上一个正式版本为 1.0.3。
+核验日期：2026-11-11。当前正式版本：1.0.4，已发布重试成功后关闭模型面板的修复。
 
 已补齐 API 模式、独立中英文界面、Windows 进程兼容、外部编辑器选择、提交面板按站点分组快速切换模型、激活站点标记与失败后的模型选择，并增加 API 站点多模型保存、JSON 导入导出和可选 API Key 导出。1.0.1 将快速菜单改为读取持久化模型缓存，支持单站点刷新、刷新完成后保持弹窗并原地替换列表；失败、取消、空结果和过期请求均保留旧缓存。Pi（`pi`）与 OMP（`omp`）保持为两个独立 CLI。实现范围见 [FEATURE_SUMMARY.md](FEATURE_SUMMARY.md)。
 
-## 1.0.4 发布进度（2026-11-11）
+## 1.0.4 发布与验证（2026-11-11）
 
 失败后选择新模型会立即重试，生成期间保留面板，成功后关闭主面板及站点子菜单；失败后恢复原面板的选择，不再重新创建弹窗。取消、手动关闭和重复点击的处理见[重试面板说明](docs/superpowers/specs/2026-11-11-retry-popup-lifecycle-design.md)。
 
-本次功能代码的 `test verifyPlugin` 通过：111 项测试，0 失败、0 错误、0 跳过。真实 IntelliJ 弹窗的无头集成测试覆盖鼠标和键盘选择、连续失败及成功关闭；关键类在 IDEA 2026.3 类路径加载通过。用户已授权更新版本、暂存、提交、推送及 GitHub Release 发布；待 1.0.4 构建、四版本兼容检查及资产发布完成后补充记录。未替换用户 IDEA 中的插件。下文的 1.0.3 验证记录保留作为历史证据。
+本机 Windows 执行 `test verifyPlugin generateUpdatePluginsXml` 成功：111 项测试，0 失败、0 错误、0 跳过，生成 1.0.4 安装包及更新清单。日志为 `tmp/release-1.0.4/01-build.log`。真实 IntelliJ 弹窗的无头集成测试覆盖鼠标和键盘选择、连续失败及成功关闭；关键类在 IDEA 2026.3 类路径加载通过。
+
+发布提交 `1ad2a20` 已推送至 GitHub `master`，标签为 `v1.0.4`。[三系统构建](https://github.com/hwglhj/generateCommitMessage/actions/runs/42952359753)在 Windows、Linux、macOS 均成功；[发布任务](https://github.com/hwglhj/generateCommitMessage/actions/runs/42952359795)完成构建及 IDEA 2026.1.5、2026.2、2026.2.4、2026.3 的 Plugin Verifier 检查，全部通过后创建正式 Release。
+
+- 正式版本：[GitHub Release v1.0.4](https://github.com/hwglhj/generateCommitMessage/releases/tag/v1.0.4)。
+- 安装包：[generateCommitMessage-1.0.4.zip](https://github.com/hwglhj/generateCommitMessage/releases/download/v1.0.4/generateCommitMessage-1.0.4.zip)。
+- 固定更新仓库：[updatePlugins.xml](https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml)。
+
+正式 ZIP 和固定更新地址的清单已实际下载到 `tmp/release-1.0.4/` 并校验：版本均为 `1.0.4`，插件 ID 为 `com.fs.generateCommitMessage`，最低平台为 `222`，清单指向本次正式 ZIP；包内包含新的面板生命周期实现。
+
+本次未替换用户 IDEA 中的插件或执行真实服务请求。用户可在 IDEA 检查更新，或从磁盘安装正式 ZIP 后重启，按 [安装与验收](INSTALL_GUIDE.md) 检查实际界面。下文保留 1.0.3 的历史记录。
 
 ## 1.0.3 自动化验证记录
 
