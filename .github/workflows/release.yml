@@ -134,9 +134,9 @@ jobs:
         body: |
           ## What's Changed
 
-          - Selecting a new API or CLI model after a generation failure immediately retries the original request while keeping the picker open.
-          - A successful retry closes the picker and site submenu; a failed or cancelled retry restores the same picker so you can choose another model.
-          - The picker shows generation progress, blocks duplicate retries, and respects manual dismissal.
+          - Selecting an API or CLI model from the manual toolbar switcher immediately generates a message for the checked changes, without another click on the lightning action.
+          - Manual generation and failure recovery keep the same picker open while generating, close it on success, and restore selection after failure or cancellation.
+          - Empty selections do not send requests; checked changes, commit-text protection, duplicate-request prevention and per-site model refresh are preserved.
           - The published ZIP passed JetBrains Plugin Verifier against IDEA 2026.1.5, 2026.2, 2026.2.4 and 2026.3.
 
           See [CHANGELOG.md](https://github.com/hwglhj/generateCommitMessage/blob/master/CHANGELOG.md) for details.

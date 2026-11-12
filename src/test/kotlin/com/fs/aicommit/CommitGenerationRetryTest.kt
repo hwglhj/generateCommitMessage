@@ -131,7 +131,7 @@ class CommitGenerationRetryTest : LightPlatformTestCase() {
         assertFalse(CommitGenerationTask.gate.isRunning)
     }
 
-    fun testNormalQuickSwitchOnlyChangesSettings() {
+    fun testModelToggleWithoutGenerationCallbackOnlyChangesSettings() {
         val flow = Flow()
         val choice = QuickModelAction.apiSites(flow.settings)[1].choices.single()
         perform(QuickModelAction.modelToggle(flow.settings, project, choice))

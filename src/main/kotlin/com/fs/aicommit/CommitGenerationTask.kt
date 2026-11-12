@@ -51,9 +51,8 @@ internal class CommitGenerationRequest(
     private val showModelSwitcher: (() -> Unit) -> CommitModelSwitcher?,
     private val canUpdateUi: () -> Boolean,
     private val runTask: (CommitGenerationTask) -> Unit = { ProgressManager.getInstance().run(it) },
+    private var modelSwitcher: CommitModelSwitcher? = null,
 ) {
-    private var modelSwitcher: CommitModelSwitcher? = null
-
     fun start() {
         if (!canUpdateUi() || modelSwitcher?.isOpen == false) return
         val token = CommitGenerationTask.gate.acquire() ?: return

@@ -41,10 +41,26 @@ class QuickModelAction : AnAction(), DumbAware {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        showPopup(project, e.inputEvent?.component ?: e.getData(PlatformCoreDataKeys.CONTEXT_COMPONENT))
+        val popup = createToolbarPopup(e) ?: return
+        showAt(popup, project, e.inputEvent?.component ?: e.getData(PlatformCoreDataKeys.CONTEXT_COMPONENT))
     }
 
     companion object {
+        internal fun createToolbarPopup(e: AnActionEvent): QuickModelActionPopup? {
+            val project = e.project ?: return null
+            if (project.isDisposed || CommitGenerationTask.gate.isRunning) return null
+            val anchor = e.inputEvent?.component ?: e.getData(PlatformCoreDataKeys.CONTEXT_COMPONENT)
+            val context = anchor ?: WindowManager.getInstance().getFrame(project)?.rootPane ?: JPanel()
+            var request: CommitGenerationRequest? = null
+            lateinit var popup: QuickModelActionPopup
+            popup = createPopup(project, AiCommitSettings.getInstance(), context, onModelSelected = {
+                // 必须使用原工具栏事件；子菜单上下文不包含提交面板及勾选的变更。
+                if (request == null) request = GenerateCommitMessageAction().createRequest(e, popup)
+                request?.start()
+            }, failure = false)
+            return popup
+        }
+
         internal data class Choice(
             val mode: String,
             val provider: String,
@@ -137,16 +153,21 @@ class QuickModelAction : AnAction(), DumbAware {
             if (project.isDisposed || CommitGenerationTask.gate.isRunning) return null
             val contextComponent = anchor ?: WindowManager.getInstance().getFrame(project)?.rootPane ?: JPanel()
             val popup = createPopup(project, AiCommitSettings.getInstance(), contextComponent, retryGeneration)
+            showAt(popup, project, anchor)
+            return popup
+        }
+
+        private fun showAt(popup: QuickModelActionPopup, project: Project, anchor: Component?) {
             if (anchor?.isShowing == true) popup.showUnderneathOf(anchor)
             else popup.showCenteredInCurrentWindow(project)
-            return popup
         }
 
         internal fun createPopup(
             project: Project,
             settings: AiCommitSettings,
             contextComponent: Component,
-            retryGeneration: (() -> Unit)? = null,
+            onModelSelected: (() -> Unit)? = null,
+            failure: Boolean = onModelSelected != null,
         ): QuickModelActionPopup {
             SubMsgBundle.language = settings.interfaceLanguage
             val group = DefaultActionGroup()
@@ -168,7 +189,7 @@ class QuickModelAction : AnAction(), DumbAware {
                             if (currentSite == null || currentSite.choices.isEmpty()) {
                                 add(disabledAction(tr("action.quick.model.empty.site")))
                             } else {
-                                currentSite.choices.forEach { choice -> add(modelToggle(settings, project, choice, retryGeneration)) }
+                                currentSite.choices.forEach { choice -> add(modelToggle(settings, project, choice, onModelSelected)) }
                             }
                             val config = settings.apiConfigs.firstOrNull { it.id == site.configId }
                             if (config != null) {
@@ -182,7 +203,7 @@ class QuickModelAction : AnAction(), DumbAware {
                 sites.any { it.choices.isNotEmpty() }
             } else {
                 val cliChoices = choices(settings)
-                cliChoices.forEach { choice -> group.add(modelToggle(settings, project, choice, retryGeneration)) }
+                cliChoices.forEach { choice -> group.add(modelToggle(settings, project, choice, onModelSelected)) }
                 cliChoices.isNotEmpty()
             }
             if (!hasChoices && group.childActionsOrStubs.isEmpty()) {
@@ -198,10 +219,10 @@ class QuickModelAction : AnAction(), DumbAware {
                         .showSettingsDialog(project, GenerateCommitMessageConfigurable::class.java)
                 }
             })
-            val title = if (retryGeneration != null) tr("action.quick.model.failure.title") else tr("action.quick.model.title")
+            val title = if (failure) tr("action.quick.model.failure.title") else tr("action.quick.model.title")
             popup = QuickModelActionPopup(title, group, quickModelPopupDataContext(project, contextComponent),
-                keepModelSelectionOpen = retryGeneration != null)
-            val hint = if (retryGeneration != null) tr("action.quick.model.failure.hint") else tr("action.quick.model.hint")
+                keepModelSelectionOpen = onModelSelected != null)
+            val hint = if (failure) tr("action.quick.model.failure.hint") else tr("action.quick.model.hint")
             popup.setAdText(hint, SwingConstants.LEFT)
             return popup
         }

@@ -17,6 +17,22 @@ import javax.swing.JPanel
 
 @RunWith(JUnit38ClassRunner::class)
 class CommitGenerationRetryPopupTest : LightPlatformTestCase() {
+    fun testManualCliChoiceGeneratesWithoutAnInitialFailureAndClosesOnSuccess() {
+        val flow = Flow(api = false)
+        flow.settings.model = "working high"
+        val popup = flow.openManual()
+        assertTrue(flow.tasks.isEmpty())
+
+        selectWithSpace(popup, "working high")
+        assertEquals(1, flow.tasks.size)
+        assertFalse(popup.isDisposed)
+        assertFalse(popup.list.isEnabled)
+        flow.finishNext()
+
+        assertTrue(popup.isDisposed)
+        assertEquals(listOf("fix: working high"), flow.results)
+    }
+
     fun testCliKeyboardSelectionKeepsPickerUntilSuccess() {
         val flow = Flow(api = false)
         flow.startFailure()
@@ -125,7 +141,9 @@ class CommitGenerationRetryPopupTest : LightPlatformTestCase() {
         val popups = mutableListOf<QuickModelActionPopup>()
         val results = mutableListOf<String>()
         val models = mutableListOf<String>()
-        val request = CommitGenerationRequest(
+        val request = newRequest()
+
+        private fun newRequest(picker: CommitModelSwitcher? = null) = CommitGenerationRequest(
             project, settings,
             generate = { snapshot, _ ->
                 val model = if (api) snapshot.activeApiConfig()!!.model else snapshot.model
@@ -145,7 +163,18 @@ class CommitGenerationRetryPopupTest : LightPlatformTestCase() {
                 tasks.add(task)
                 Disposer.register(testRootDisposable) { task.onFinished() }
             },
+            modelSwitcher = picker,
         )
+
+        fun openManual(): QuickModelActionPopup {
+            lateinit var manualRequest: CommitGenerationRequest
+            val popup = QuickModelAction.createPopup(project, settings, JPanel(),
+                onModelSelected = { manualRequest.start() }, failure = false)
+            popups.add(popup)
+            Disposer.register(testRootDisposable, popup)
+            manualRequest = newRequest(popup)
+            return popup
+        }
 
         fun startFailure() {
             // CLI quick choices use a cached catalog; provide a candidate without network access.

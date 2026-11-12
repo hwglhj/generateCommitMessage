@@ -19,9 +19,10 @@ IntelliJ IDEA plugin based on [l-ning/cli-tools-idea](https://github.com/l-ning/
 
 AI Inline and REST API Search are not part of this plugin.
 
-## What's new in 1.0.4
+## What's new in 1.0.5
 
-- Selecting another API or CLI model after a generation failure immediately retries the original request, keeping the picker open until generation succeeds.
+- Selecting an API or CLI model from the toolbar's quick switcher now immediately generates a message for the checked changes, without another click on the lightning action.
+- Both the manual switcher and the failure picker stay open while generating, close on success, and let you select another model after failure.
 - Failed or cancelled retries restore the same picker so you can select another model. A successful retry closes both the picker and its site submenu.
 - The picker shows generation progress and blocks duplicate retries. A manually dismissed picker stays closed after a failed retry.
 - The release workflow checks IDEA 2026.1.5, 2026.2, 2026.2.4 and 2026.3 with JetBrains Plugin Verifier before publishing the ZIP and update manifest.
@@ -62,9 +63,9 @@ Select changes in the Commit tool window and click the lightning action. The plu
 
 The model-list action beside the lightning button opens a grouped site/model menu immediately from the saved cache. The active site is marked with a check, models can be switched without opening Settings, and each site can be refreshed independently without closing the popup.
 
-If generation fails, select another API or CLI model to retry immediately—no second click on the lightning button is needed. The picker stays open during the retry, closes on success, and remains available after failure so you can choose another model. Model selection is disabled while generation runs.
+Select an API or CLI model to immediately generate a message for the checked changes—no click on the lightning button is needed. Selecting the current model also starts generation. The picker stays open while generating, closes on success, and remains available after failure so you can choose another model. Model selection is disabled while generation runs.
 
-Dismissing the picker prevents it from reopening after a failed retry; use the task's Cancel button to stop an in-flight request. Opening the switcher from the toolbar only changes the model setting.
+Dismissing the picker prevents it from reopening after a failed retry; use the task's Cancel button to stop an in-flight request. Opening the menu or refreshing a site's models does not generate a message. If no changes are checked, the plugin saves the model choice and asks you to select changes without sending a request.
 
 ![Quick site and model switcher](docs/images/quick-model-switcher.png)
 
@@ -72,7 +73,7 @@ Dismissing the picker prevents it from reopening after a failed retry; use the t
 
 Requires IntelliJ IDEA 2022.2 or later and the bundled Terminal plugin. The build targets platform 222 and Java 17. Releases are gated on JetBrains binary compatibility checks for **IDEA 2026.1.5, 2026.2, 2026.2.4 and 2026.3**; see the [version matrix and update channel](docs/IDE_COMPATIBILITY.md).
 
-Download `generateCommitMessage-1.0.4.zip` from [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) and install it using Settings > Plugins > Install Plugin from Disk, then restart the IDE. Configure Settings > Tools > Generate Commit Message, which contains **AI Commit** and **CLI Tools** tabs.
+Download `generateCommitMessage-1.0.5.zip` from [GitHub Releases](https://github.com/hwglhj/generateCommitMessage/releases/latest) and install it using Settings > Plugins > Install Plugin from Disk, then restart the IDE. Configure Settings > Tools > Generate Commit Message, which contains **AI Commit** and **CLI Tools** tabs.
 
 For updates, add `https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml` under Settings > Plugins > ⚙️ > Manage Plugin Repositories. If IDEA displays “Unable to identify where Generate Commit Message was installed from”, select this repository in the plugin's update-source selector, then check for updates. See the [installation guide](INSTALL_GUIDE.md#插件更新来源).
 
@@ -88,7 +89,7 @@ Use JDK 17 and Gradle 7.4.2 already installed on this machine:
 & 'D:\gradle-7.4.2\bin\gradle.bat' test verifyPlugin generateUpdatePluginsXml --no-daemon
 ```
 
-The artifacts are `build/distributions/generateCommitMessage-1.0.4.zip` and `build/distributions/updatePlugins.xml`. The release workflow publishes both files after tests and version compatibility checks pass. No Git write operations are needed for a local build. Test temporary files use `tmp/tests/`.
+The artifacts are `build/distributions/generateCommitMessage-1.0.5.zip` and `build/distributions/updatePlugins.xml`. The release workflow publishes both files after tests and version compatibility checks pass. No Git write operations are needed for a local build. Test temporary files use `tmp/tests/`.
 
 See [installation and acceptance](INSTALL_GUIDE.md), [feature map](FEATURE_SUMMARY.md), [verification record](FINAL_SUMMARY.md), and [document index](DOCS_INDEX.md). Build and automated test results do not establish live provider availability or compatibility with every CLI version.
 

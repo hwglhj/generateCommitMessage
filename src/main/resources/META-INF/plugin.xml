@@ -20,6 +20,12 @@ Based on l-ning/cli-tools-idea. Requires IntelliJ IDEA 2022.2 or later with the 
 ]]></description>
 
     <change-notes><![CDATA[
+        <h3>1.0.5</h3>
+        <ul>
+            <li>手动快速切换 API 或 CLI 模型后立即生成当前勾选变更的提交信息，无需再次点击闪电</li>
+            <li>手动菜单同样在生成成功后自动关闭，失败或取消后保留原面板继续选择</li>
+            <li>保留空选择校验、原始变更选择、输入文字保护和重复请求拦截</li>
+        </ul>
         <h3>1.0.4</h3>
         <ul>
             <li>失败后选择新模型立即重试，生成期间保留选择面板，成功后自动关闭主面板及站点子菜单</li>
@@ -49,7 +55,7 @@ Based on l-ning/cli-tools-idea. Requires IntelliJ IDEA 2022.2 or later with the 
         </ul>
     ]]></change-notes>
 
-    <version>1.0.4</version>
+    <version>1.0.5</version>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>

@@ -111,7 +111,7 @@ internal interface QuickModelPopupRefreshHandle {
 
 /**
  * IntelliJ 的 ActionGroup 子菜单默认会在执行普通 Action 后关闭。
- * 刷新站点和失败后的模型重试保留弹窗；普通工具栏选择沿用原生行为。
+ * 刷新站点和模型生成期间保留弹窗，生成成功后由请求关闭。
  * 且不依赖已从新版 IDE 删除的 KeepingPopupOpenAction 内部接口。
  */
 internal class QuickModelActionPopup(

@@ -35,22 +35,28 @@ class GenerateCommitMessageAction : AnAction(), DumbAware {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun actionPerformed(e: AnActionEvent) {
-        val project = e.project ?: return
+        createRequest(e)?.start()
+    }
+
+    /** 两个工具栏入口共用提交上下文校验、选中变更快照及结果回填保护。 */
+    internal fun createRequest(e: AnActionEvent, modelSwitcher: CommitModelSwitcher? = null): CommitGenerationRequest? {
+        val project = e.project ?: return null
+        if (project.isDisposed) return null
         val commitPanel = getCommitMessagePanel(e)
         if (commitPanel == null) {
             notify(project, tr("commit.panel.unavailable"), NotificationType.WARNING)
-            return
+            return null
         }
         val selection = getUserSelectedChanges(e)
         if (selection.isEmpty()) {
             notify(project, tr("commit.selection.empty"), NotificationType.WARNING)
-            return
+            return null
         }
 
         // Detect edits made while generation is running before replacing the field.
         val originalMessage = readCommitMessage(e, commitPanel)
         val anchor = e.inputEvent?.component ?: e.getData(PlatformCoreDataKeys.CONTEXT_COMPONENT)
-        CommitGenerationRequest(
+        return CommitGenerationRequest(
             project = project,
             settings = AiCommitSettings.getInstance(),
             generate = { snapshot, indicator ->
@@ -71,7 +77,8 @@ class GenerateCommitMessageAction : AnAction(), DumbAware {
             },
             showModelSwitcher = { retry -> QuickModelAction.showPopup(project, anchor, retryGeneration = retry) },
             canUpdateUi = { !project.isDisposed },
-        ).start()
+            modelSwitcher = modelSwitcher,
+        )
     }
 
     /**
