@@ -1,10 +1,10 @@
 # 重建验证记录
 
-核验日期：2026-11-13。当前发布候选为 1.0.5，手动快速选择模型立即生成；上一个正式版本为 1.0.4。
+核验日期：2026-11-13。当前正式版本为 1.0.5，手动快速选择模型立即生成。
 
 已补齐 API 模式、独立中英文界面、Windows 进程兼容、外部编辑器选择、提交面板按站点分组快速切换模型、激活站点标记与失败后的模型选择，并增加 API 站点多模型保存、JSON 导入导出和可选 API Key 导出。1.0.1 将快速菜单改为读取持久化模型缓存，支持单站点刷新、刷新完成后保持弹窗并原地替换列表；失败、取消、空结果和过期请求均保留旧缓存。Pi（`pi`）与 OMP（`omp`）保持为两个独立 CLI。实现范围见 [FEATURE_SUMMARY.md](FEATURE_SUMMARY.md)。
 
-## 1.0.5 验证与发布进度（2026-11-13）
+## 1.0.5 发布与验证（2026-11-13）
 
 手动快速菜单选择 API 或 CLI 模型后立即生成勾选变更的提交信息，选择当前模型也会生成。手动入口与失败入口共用请求工厂和面板状态：生成中保留并禁用选择，成功关闭，失败或取消恢复原面板。打开菜单、展开站点、刷新列表及关闭菜单不生成；空选择或缺少提交面板时仅保存模型选择并提示原因。
 
@@ -12,7 +12,15 @@
 
 本机 `test verifyPlugin generateUpdatePluginsXml` 成功：117 项测试，0 失败、0 错误、0 跳过；1.0.5 ZIP 及更新清单版本、ID 和下载地址一致。日志为 `tmp/manual-model-generation/06-build.log`。因本地编译依赖缓存缺失且 JetBrains 缓存转发下载超时，使用临时初始化脚本 `tmp/manual-model-generation/03-direct-repository.gradle` 从官方直连地址取得同版本 SDK；编译基线仍为 2022.2.5 / 222。
 
-待推送并完成 GitHub 三系统构建、四版本兼容检查及正式资产验证后更新发布记录。用户要求发布完成后关机，执行非强制关机，不替换正在使用的 IDEA 插件。行为说明见[手动模型生成设计](docs/superpowers/specs/2026-11-12-manual-model-generation-design.md)。
+发布提交 `cd6a3a5` 已推送至 GitHub `master`，标签为 `v1.0.5`。[发布任务](https://github.com/hwglhj/generateCommitMessage/actions/runs/43262826090)完成构建及 IDEA 2026.1.5、2026.2、2026.2.4、2026.3 的 Plugin Verifier 检查，全部通过后创建正式 Release。[三系统构建](https://github.com/hwglhj/generateCommitMessage/actions/runs/43262825760)的 Linux、Windows、macOS 检查也全部成功。
+
+- 正式版本：[GitHub Release v1.0.5](https://github.com/hwglhj/generateCommitMessage/releases/tag/v1.0.5)。
+- 安装包：[generateCommitMessage-1.0.5.zip](https://github.com/hwglhj/generateCommitMessage/releases/download/v1.0.5/generateCommitMessage-1.0.5.zip)。
+- 固定更新仓库：[updatePlugins.xml](https://github.com/hwglhj/generateCommitMessage/releases/latest/download/updatePlugins.xml)。
+
+正式 ZIP 和固定更新地址的清单已实际下载到 `tmp/release-1.0.5/` 并核对：版本均为 `1.0.5`，插件 ID 为 `com.fs.generateCommitMessage`，最低平台为 `222`，清单指向本次正式 ZIP。包内包含手动模型生成入口及共用请求实现。
+
+本次未替换用户 IDEA 中的插件。用户可检查更新，或从磁盘安装正式 ZIP 后重启 IDEA。按用户要求，发布记录推送结束后安排非强制关机，不强制结束未保存的应用；安排及执行日志保存在本机 `tmp/release-1.0.5/13-shutdown.log`。行为说明见[手动模型生成设计](docs/superpowers/specs/2026-11-12-manual-model-generation-design.md)。
 
 ## 1.0.4 发布与验证（2026-11-11）
 
